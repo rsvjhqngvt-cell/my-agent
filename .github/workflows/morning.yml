@@ -37,8 +37,7 @@ jobs:
         run: |
           git config user.name "ISU Agent"
           git config user.email "agent@github.com"
-          git fetch origin main
-          git rebase origin/main
           git add reports/
-          git diff --staged --quiet || git commit -m "📊 리포트: $(date +%Y-%m-%d)"
-          git push origin main
+          git diff --staged --quiet && echo "저장할 변경사항 없음" && exit 0
+          git commit -m "📊 리포트: $(date +%Y-%m-%d)"
+          git push origin main || (git fetch origin main && git rebase FETCH_HEAD && git push origin main)
