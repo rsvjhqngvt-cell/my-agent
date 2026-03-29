@@ -91,7 +91,8 @@ def analyze_with_claude(news_list):
     )
 
     prompt = f"""
-당신은 IT 기업 M&A 전문 컨설턴트입니다.
+당신은 IT 기업 M&A 전문 컨설턴트입니다. 응답은 반드시 아래 형식을 완전히 완성하여 끝까지 작성하세요.
+각 항목은 한 문장으로만 작성하고, 절대 중간에 끊지 마세요.
 
 ## 의뢰 기업 정보
 {ISU_SYSTEM_PROFILE}
@@ -99,33 +100,64 @@ def analyze_with_claude(news_list):
 ## 오늘의 IT 뉴스 목록
 {news_text}
 
-## 요청 사항
+## 출력 형식 (반드시 아래 형식 그대로, 끝까지 완성할 것)
 
-### 1. M&A 핵심 뉴스 TOP 3
-위 뉴스 중 이수시스템의 M&A 전략에 가장 중요한 뉴스 딱 3건만 선별하여 아래 형식으로 작성하세요:
+=== M&A 핵심 뉴스 TOP 3 ===
 
-**[순위] 뉴스 제목**
-- 관련 솔루션: (이수시스템의 어떤 솔루션과 연관되는지)
-- S (강점): 한 문장
-- W (약점): 한 문장
-- O (기회): 한 문장
-- T (위협): 한 문장
-- 시사점: (M&A 전략에서 어떻게 활용할 수 있는지 2문장 이내)
+[1위] (뉴스 제목)
+관련솔루션: (한 단어~짧은 구)
+S: (한 문장)
+W: (한 문장)
+O: (한 문장)
+T: (한 문장)
+시사점: (한 문장)
 
-### 2. M&A 유망 한국 기업 추천 3건
-뉴스 트렌드를 바탕으로 이수시스템이 인수하면 시너지가 날 수 있는 한국 IT 기업을 추천하세요.
-**반드시 시가총액 1,000억원 이하의 중소형 기업만 추천하세요.**
+[2위] (뉴스 제목)
+관련솔루션: (한 단어~짧은 구)
+S: (한 문장)
+W: (한 문장)
+O: (한 문장)
+T: (한 문장)
+시사점: (한 문장)
 
-**기업명** (업종 | 시총 추정)
-- 보유 역량:
-- 시너지 포인트:
-- S (강점): 한 문장
-- W (약점): 한 문장
-- O (기회): 한 문장
-- T (위협): 한 문장
-- 주의사항:
+[3위] (뉴스 제목)
+관련솔루션: (한 단어~짧은 구)
+S: (한 문장)
+W: (한 문장)
+O: (한 문장)
+T: (한 문장)
+시사점: (한 문장)
 
-응답은 한국어로, 실무자가 바로 활용할 수 있도록 명확하고 간결하게 작성해주세요.
+=== M&A 유망 기업 추천 (시총 1,000억 이하) ===
+
+[추천1] 기업명 | 업종 | 시총 약 OOO억
+역량: (한 문장)
+시너지: (한 문장)
+S: (한 문장)
+W: (한 문장)
+O: (한 문장)
+T: (한 문장)
+주의: (한 문장)
+
+[추천2] 기업명 | 업종 | 시총 약 OOO억
+역량: (한 문장)
+시너지: (한 문장)
+S: (한 문장)
+W: (한 문장)
+O: (한 문장)
+T: (한 문장)
+주의: (한 문장)
+
+[추천3] 기업명 | 업종 | 시총 약 OOO억
+역량: (한 문장)
+시너지: (한 문장)
+S: (한 문장)
+W: (한 문장)
+O: (한 문장)
+T: (한 문장)
+주의: (한 문장)
+
+=== END ===
 """
 
     message = client.messages.create(
@@ -146,31 +178,35 @@ def send_email(report_content):
     today = date.today().strftime("%Y년 %m월 %d일")
     subject = f"[이수시스템 M&A 인텔리전스] {today} 아침 IT 동향 리포트"
 
-    def markdown_to_html(text):
+    def format_to_html(text):
         lines = text.split("\n")
         html_lines = []
         for line in lines:
-            if line.startswith("### "):
-                line = f'<h3 style="color:#1a5276;margin-top:24px;">{line[4:]}</h3>'
-            elif line.startswith("## "):
-                line = f'<h2 style="color:#1a5276;">{line[3:]}</h2>'
-            elif line.startswith("**") and line.endswith("**"):
-                line = f'<p style="font-weight:bold;margin-top:16px;font-size:15px;">{line[2:-2]}</p>'
-            elif line.startswith("- S (강점)"):
-                line = f'<p style="margin:4px 0;"><span style="background:#d5f5e3;padding:2px 6px;border-radius:3px;font-weight:bold;">S 강점</span> {line[10:]}</p>'
-            elif line.startswith("- W (약점)"):
-                line = f'<p style="margin:4px 0;"><span style="background:#fde8d8;padding:2px 6px;border-radius:3px;font-weight:bold;">W 약점</span> {line[10:]}</p>'
-            elif line.startswith("- O (기회)"):
-                line = f'<p style="margin:4px 0;"><span style="background:#d6eaf8;padding:2px 6px;border-radius:3px;font-weight:bold;">O 기회</span> {line[10:]}</p>'
-            elif line.startswith("- T (위협)"):
-                line = f'<p style="margin:4px 0;"><span style="background:#f9ebea;padding:2px 6px;border-radius:3px;font-weight:bold;">T 위협</span> {line[10:]}</p>'
-            elif line.startswith("- "):
-                line = f'<p style="margin:4px 0 4px 12px;">• {line[2:]}</p>'
-            elif line.strip() == "":
-                line = ""
+            line = line.strip()
+            if line.startswith("=== ") and line.endswith(" ==="):
+                title = line[4:-4]
+                html_lines.append(f'<h3 style="color:#fff;background:#1a5276;padding:8px 14px;border-radius:6px;margin-top:24px;margin-bottom:8px;">{title}</h3>')
+            elif line.startswith("[1위]") or line.startswith("[2위]") or line.startswith("[3위]"):
+                html_lines.append(f'<p style="font-weight:bold;font-size:14px;margin:16px 0 4px;color:#1a5276;">📌 {line}</p>')
+            elif line.startswith("[추천1]") or line.startswith("[추천2]") or line.startswith("[추천3]"):
+                html_lines.append(f'<p style="font-weight:bold;font-size:14px;margin:16px 0 4px;color:#117a65;">🏢 {line[5:]}</p>')
+            elif line.startswith("S:"):
+                html_lines.append(f'<p style="margin:3px 0;"><span style="background:#d5f5e3;padding:1px 6px;border-radius:3px;font-weight:bold;font-size:12px;">S 강점</span> {line[2:].strip()}</p>')
+            elif line.startswith("W:"):
+                html_lines.append(f'<p style="margin:3px 0;"><span style="background:#fde8d8;padding:1px 6px;border-radius:3px;font-weight:bold;font-size:12px;">W 약점</span> {line[2:].strip()}</p>')
+            elif line.startswith("O:"):
+                html_lines.append(f'<p style="margin:3px 0;"><span style="background:#d6eaf8;padding:1px 6px;border-radius:3px;font-weight:bold;font-size:12px;">O 기회</span> {line[2:].strip()}</p>')
+            elif line.startswith("T:"):
+                html_lines.append(f'<p style="margin:3px 0;"><span style="background:#f9ebea;padding:1px 6px;border-radius:3px;font-weight:bold;font-size:12px;">T 위협</span> {line[2:].strip()}</p>')
+            elif line.startswith("관련솔루션:") or line.startswith("시사점:") or line.startswith("역량:") or line.startswith("시너지:") or line.startswith("주의:"):
+                key, _, val = line.partition(":")
+                html_lines.append(f'<p style="margin:3px 0;"><strong>{key}:</strong>{val}</p>')
+            elif line == "=== END ===":
+                html_lines.append('<hr style="border:1px dashed #ccc;margin:16px 0;">')
+            elif line == "":
+                pass
             else:
-                line = f'<p style="margin:4px 0;">{line}</p>'
-            html_lines.append(line)
+                html_lines.append(f'<p style="margin:3px 0;">{line}</p>')
         return "\n".join(html_lines)
 
     html_body = f"""
@@ -183,7 +219,7 @@ def send_email(report_content):
 <p style="color:#666;">{today} | Claude AI 자동 분석</p>
 
 <div style="background:#f8f9fa;padding:20px;border-radius:8px;margin:20px 0;line-height:1.7;">
-{markdown_to_html(report_content)}
+{format_to_html(report_content)}
 </div>
 
 <hr style="border:1px solid #eee;margin:20px 0;">
