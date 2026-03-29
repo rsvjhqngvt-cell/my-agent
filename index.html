@@ -166,9 +166,17 @@ function parseReport(content) {
 
 function renderCard(item, isCompany) {
   const cls = isCompany ? 'card company' : 'card';
+  let linkUrl = '';
   const rows = item.rows.map(row => {
-    const [key, ...rest] = row.split(':');
-    const val = rest.join(':').trim();
+    const colonIdx = row.indexOf(':');
+    if (colonIdx === -1) return `<div class="card-row">${highlight(row)}</div>`;
+    const key = row.slice(0, colonIdx).trim();
+    const val = row.slice(colonIdx + 1).trim();
+    if (key === 'URL' || key === '홈페이지') {
+      linkUrl = val;
+      const label = isCompany ? '🔗 홈페이지' : '🔗 기사 원문';
+      return `<div class="card-row"><a href="${val}" target="_blank" style="color:#1a5276;font-size:12px;">${label} →</a></div>`;
+    }
     if (key === 'S') return `<div class="card-row"><span class="badge badge-s">S</span><span>${highlight(val)}</span></div>`;
     if (key === 'W') return `<div class="card-row"><span class="badge badge-w">W</span><span>${highlight(val)}</span></div>`;
     if (key === 'O') return `<div class="card-row"><span class="badge badge-o">O</span><span>${highlight(val)}</span></div>`;
@@ -181,7 +189,11 @@ function renderCard(item, isCompany) {
     item.rows.some(r => r.toLowerCase().includes(searchQuery.toLowerCase()));
   if (!headerMatches) return '';
 
-  return `<div class="${cls}"><div class="card-header">${isCompany ? '🏢' : '📌'} ${highlight(item.header)}</div>${rows}</div>`;
+  const headerHtml = linkUrl
+    ? `<a href="${linkUrl}" target="_blank" style="color:inherit;text-decoration:none;">${isCompany ? '🏢' : '📌'} ${highlight(item.header)}</a>`
+    : `${isCompany ? '🏢' : '📌'} ${highlight(item.header)}`;
+
+  return `<div class="${cls}"><div class="card-header">${headerHtml}</div>${rows}</div>`;
 }
 
 function render(data) {
