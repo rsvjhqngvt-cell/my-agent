@@ -392,6 +392,40 @@ def send_email(report_content, today_str):
     print(f"[이메일 발송 완료] → {recipient_email}")
 
 
+def verify_and_fix_urls(content):
+    """리포트 내 URL을 검증하고, 접속 불가한 URL은 검색 URL로 교체합니다."""
+    lines = content.split("\n")
+    result = []
+    for line in lines:
+        stripped = line.strip()
+        # URL 또는 홈페이지 라인 감지
+        if stripped.startswith("URL:") or stripped.startswith("홈페이지:"):
+            key, _, url = stripped.partition(":")
+            url = url.strip()
+            if url and url.startswith("http") and "google.com/search" not in url:
+                try:
+                    r = requests.get(url, headers=HEADERS, timeout=6, allow_redirects=True)
+                    if r.status_code == 200:
+                        # 접속 성공 → URL 유지 (리다이렉트된 실제 URL로 업데이트)
+                        final_url = r.url
+                        line = line.replace(url, final_url)
+                        print(f"  [URL 검증 ✅] {final_url[:60]}")
+                    else:
+                        raise Exception(f"status {r.status_code}")
+                except Exception as e:
+                    # 접속 실패 → Google 검색 URL로 대체
+                    if key.strip() == "홈페이지":
+                        # 기업명 추출 시도
+                        search_query = url.replace("https://", "").replace("http://", "").replace("www.", "").split("/")[0]
+                        fallback = f"https://www.google.com/search?q={search_query}"
+                    else:
+                        fallback = f"https://www.google.com/search?q=관련기사"
+                    line = f"{key}: {fallback}"
+                    print(f"  [URL 검증 ❌] 접속불가 → 검색URL로 대체: {url[:50]}")
+        result.append(line)
+    return "\n".join(result)
+
+
 def load_existing_report(today_str):
     """오늘 이미 생성된 리포트가 있으면 불러옵니다."""
     path = f"reports/{today_str}.json"
@@ -424,6 +458,9 @@ def main():
         report = analyze_with_claude(news_list, today_str)
         print("분석 완료\n")
         print(report)
+
+        print("\n[3/4] URL 검증 중...")
+        report = verify_and_fix_urls(report)
 
         print("\n[3/4] 리포트 파일 저장 중...")
         save_report(report, news_list, today_str)
