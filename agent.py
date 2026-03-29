@@ -11,14 +11,22 @@ from datetime import date, datetime
 client = Anthropic()
 
 ISU_SYSTEM_PROFILE = """
-이수시스템(ISU SYSTEM)은 다음 솔루션을 보유한 IT 기업입니다:
+이수시스템(ISU SYSTEM)의 사업 영역 (우선순위 순서):
+
+★ 주력사업 (최우선):
+- HR: Smart HR, WORKUP, HR-Tong (500개 이상 기업 구축 경험) — 핵심 매출원
+
+▶ 주요사업:
 - AI: 챗봇, HR AI Package, AI 플랫폼, AI 이력서 분석
 - 디지털 서비스: ERP 솔루션, RPA, Smart Root
 - ESG: ESG 데이터 플랫폼 (지표관리, 공급망관리)
-- HR: Smart HR, WORKUP, HR-Tong (500개 이상 기업 구축 경험)
+
+▶ 부가사업:
 - 안전: Smart Plant, Smart & Safety, BizPTT (산업현장 안전관리)
 - 클라우드 인프라: Cloud Platform
+
 현재 M&A를 통해 사업 시너지를 낼 수 있는 기업을 탐색 중입니다.
+뉴스 및 M&A 기업 추천 시 HR 관련 연관성을 최우선으로 평가하세요.
 """
 
 BIRTH_INFO = {
