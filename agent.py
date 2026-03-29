@@ -373,25 +373,41 @@ def send_email(report_content, today_str):
     print(f"[이메일 발송 완료] → {recipient_email}")
 
 
+def load_existing_report(today_str):
+    """오늘 이미 생성된 리포트가 있으면 불러옵니다."""
+    path = f"reports/{today_str}.json"
+    if os.path.exists(path):
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return data.get("content")
+    return None
+
+
 def main():
     print("=== 이수시스템 M&A 인텔리전스 에이전트 시작 ===")
     today_str = date.today().isoformat()
 
-    print("\n[1/4] IT 뉴스 크롤링 중...")
-    news_list = crawl_news()
-    print(f"총 {len(news_list)}건 수집 완료")
+    # 오늘 이미 분석한 결과가 있으면 재사용 (순서/내용 고정)
+    existing = load_existing_report(today_str)
+    if existing:
+        print(f"\n[캐시] {today_str} 리포트가 이미 존재합니다. 저장된 결과를 사용합니다.")
+        report = existing
+    else:
+        print("\n[1/4] IT 뉴스 크롤링 중...")
+        news_list = crawl_news()
+        print(f"총 {len(news_list)}건 수집 완료")
 
-    if not news_list:
-        print("수집된 뉴스가 없어 종료합니다.")
-        return
+        if not news_list:
+            print("수집된 뉴스가 없어 종료합니다.")
+            return
 
-    print("\n[2/4] Claude AI 분석 중...")
-    report = analyze_with_claude(news_list, today_str)
-    print("분석 완료\n")
-    print(report)
+        print("\n[2/4] Claude AI 분석 중...")
+        report = analyze_with_claude(news_list, today_str)
+        print("분석 완료\n")
+        print(report)
 
-    print("\n[3/4] 리포트 파일 저장 중...")
-    save_report(report, news_list, today_str)
+        print("\n[3/4] 리포트 파일 저장 중...")
+        save_report(report, news_list, today_str)
 
     print("\n[4/4] 이메일 발송 중...")
     send_email(report, today_str)
