@@ -392,6 +392,93 @@ def send_email(report_content, today_str):
     print(f"[이메일 발송 완료] → {recipient_email}")
 
 
+def crawl_company_info(url):
+    """기업 홈페이지를 직접 크롤링해서 실제 정보를 추출합니다."""
+    try:
+        r = requests.get(url, headers=HEADERS, timeout=8, allow_redirects=True)
+        r.encoding = "utf-8"
+        soup = BeautifulSoup(r.text, "lxml")
+        # 불필요한 태그 제거
+        for tag in soup(["script", "style", "nav", "footer", "header"]):
+            tag.decompose()
+        text = soup.get_text(separator=" ", strip=True)
+        # 앞 1500자만 사용
+        return text[:1500]
+    except Exception as e:
+        return None
+
+
+def verify_companies_with_claude(content):
+    """Claude 추천 기업의 홈페이지를 크롤링해서 내용이 사실과 맞는지 검증/수정합니다."""
+    lines = content.split("\n")
+    companies = []
+    current = None
+
+    for line in lines:
+        s = line.strip()
+        if s.startswith("[기업"):
+            if current:
+                companies.append(current)
+            current = {"header_line": s, "url": None, "start_idx": len(companies)}
+        elif current and (s.startswith("홈페이지:") or s.startswith("URL:")):
+            _, _, url = s.partition(":")
+            current["url"] = url.strip()
+        elif s == "=== END ===" and current:
+            companies.append(current)
+            current = None
+
+    if not companies:
+        return content
+
+    # 각 기업 홈페이지 크롤링
+    verified_info = []
+    for company in companies:
+        if company["url"] and "google.com/search" not in company["url"]:
+            print(f"  [기업 홈페이지 크롤링] {company['url'][:50]}")
+            crawled = crawl_company_info(company["url"])
+            if crawled:
+                verified_info.append({
+                    "header": company["header_line"],
+                    "url": company["url"],
+                    "crawled_text": crawled
+                })
+
+    if not verified_info:
+        return content
+
+    # Claude에게 검증 및 수정 요청
+    verify_prompt = f"""아래 기업들의 홈페이지에서 직접 크롤링한 실제 내용입니다.
+기존 리포트의 기업 설명 중 사실과 다른 내용을 수정하고, 검증된 내용만 포함해주세요.
+
+## 크롤링된 실제 홈페이지 내용:
+{json.dumps(verified_info, ensure_ascii=False, indent=2)[:3000]}
+
+## 수정 기준:
+- 제품명, 고객사 수, 설립연도 등 사실관계는 반드시 홈페이지 내용 기준으로 수정
+- 확인되지 않은 정보는 삭제하고 "(홈페이지 미확인)" 표시
+- 나머지 분석(S/W/O/T, 시너지 등)은 수정된 사실 기반으로 재작성
+
+현재 리포트:
+{content[content.find('[기업1]'):]}
+
+위 내용에서 기업 설명 부분만 수정하여 동일한 형식으로 출력하세요."""
+
+    try:
+        message = client.messages.create(
+            model="claude-opus-4-6",
+            max_tokens=2000,
+            messages=[{"role": "user", "content": verify_prompt}]
+        )
+        corrected = message.content[0].text
+
+        # 기업 섹션만 교체
+        prefix = content[:content.find("[기업1]")]
+        return prefix + corrected
+    except Exception as e:
+        print(f"  [기업 검증 오류] {e}")
+        return content
+
+
 def verify_and_fix_urls(content):
     """리포트 내 URL을 검증하고, 접속 불가한 URL은 검색 URL로 교체합니다."""
     lines = content.split("\n")
@@ -459,8 +546,9 @@ def main():
         print("분석 완료\n")
         print(report)
 
-        print("\n[3/4] URL 검증 중...")
+        print("\n[3/4] URL 및 기업 정보 검증 중...")
         report = verify_and_fix_urls(report)
+        report = verify_companies_with_claude(report)
 
         print("\n[3/4] 리포트 파일 저장 중...")
         save_report(report, news_list, today_str)
