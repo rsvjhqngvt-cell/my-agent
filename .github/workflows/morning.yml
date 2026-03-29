@@ -39,4 +39,5 @@ jobs:
           git config user.email "agent@github.com"
           git add reports/
           git diff --staged --quiet || git commit -m "📊 리포트: $(date +%Y-%m-%d)"
+          git pull --rebase origin main
           git push
