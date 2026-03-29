@@ -101,21 +101,28 @@ def analyze_with_claude(news_list):
 
 ## 요청 사항
 
-### 1. M&A 관련 주목 뉴스 (최대 5건)
-위 뉴스 중 이수시스템의 M&A 전략과 시너지가 날 수 있는 뉴스를 선별하여 아래 형식으로 작성하세요:
+### 1. M&A 핵심 뉴스 TOP 3
+위 뉴스 중 이수시스템의 M&A 전략에 가장 중요한 뉴스 딱 3건만 선별하여 아래 형식으로 작성하세요:
 
-**뉴스 제목**
+**[순위] 뉴스 제목**
 - 관련 솔루션: (이수시스템의 어떤 솔루션과 연관되는지)
-- SWOT 한줄: (Strength/Weakness/Opportunity/Threat 중 핵심 1가지 관점으로 한 문장)
-- 시사점: (M&A 전략에서 어떻게 활용할 수 있는지 2-3문장)
+- S (강점): 한 문장
+- W (약점): 한 문장
+- O (기회): 한 문장
+- T (위협): 한 문장
+- 시사점: (M&A 전략에서 어떻게 활용할 수 있는지 2문장 이내)
 
-### 2. 오늘의 M&A 유망 한국 기업 추천 (3건)
-뉴스 트렌드를 바탕으로 이수시스템이 인수하면 시너지가 날 수 있는 한국 IT 기업을 추천하세요:
+### 2. M&A 유망 한국 기업 추천 3건
+뉴스 트렌드를 바탕으로 이수시스템이 인수하면 시너지가 날 수 있는 한국 IT 기업을 추천하세요.
+**반드시 시가총액 1,000억원 이하의 중소형 기업만 추천하세요.**
 
-**기업명** (업종/규모 추정)
+**기업명** (업종 | 시총 추정)
 - 보유 역량:
 - 시너지 포인트:
-- SWOT 한줄:
+- S (강점): 한 문장
+- W (약점): 한 문장
+- O (기회): 한 문장
+- T (위협): 한 문장
 - 주의사항:
 
 응답은 한국어로, 실무자가 바로 활용할 수 있도록 명확하고 간결하게 작성해주세요.
@@ -123,7 +130,7 @@ def analyze_with_claude(news_list):
 
     message = client.messages.create(
         model="claude-opus-4-6",
-        max_tokens=3000,
+        max_tokens=4000,
         messages=[{"role": "user", "content": prompt}]
     )
 
@@ -139,21 +146,48 @@ def send_email(report_content):
     today = date.today().strftime("%Y년 %m월 %d일")
     subject = f"[이수시스템 M&A 인텔리전스] {today} 아침 IT 동향 리포트"
 
+    def markdown_to_html(text):
+        lines = text.split("\n")
+        html_lines = []
+        for line in lines:
+            if line.startswith("### "):
+                line = f'<h3 style="color:#1a5276;margin-top:24px;">{line[4:]}</h3>'
+            elif line.startswith("## "):
+                line = f'<h2 style="color:#1a5276;">{line[3:]}</h2>'
+            elif line.startswith("**") and line.endswith("**"):
+                line = f'<p style="font-weight:bold;margin-top:16px;font-size:15px;">{line[2:-2]}</p>'
+            elif line.startswith("- S (강점)"):
+                line = f'<p style="margin:4px 0;"><span style="background:#d5f5e3;padding:2px 6px;border-radius:3px;font-weight:bold;">S 강점</span> {line[10:]}</p>'
+            elif line.startswith("- W (약점)"):
+                line = f'<p style="margin:4px 0;"><span style="background:#fde8d8;padding:2px 6px;border-radius:3px;font-weight:bold;">W 약점</span> {line[10:]}</p>'
+            elif line.startswith("- O (기회)"):
+                line = f'<p style="margin:4px 0;"><span style="background:#d6eaf8;padding:2px 6px;border-radius:3px;font-weight:bold;">O 기회</span> {line[10:]}</p>'
+            elif line.startswith("- T (위협)"):
+                line = f'<p style="margin:4px 0;"><span style="background:#f9ebea;padding:2px 6px;border-radius:3px;font-weight:bold;">T 위협</span> {line[10:]}</p>'
+            elif line.startswith("- "):
+                line = f'<p style="margin:4px 0 4px 12px;">• {line[2:]}</p>'
+            elif line.strip() == "":
+                line = ""
+            else:
+                line = f'<p style="margin:4px 0;">{line}</p>'
+            html_lines.append(line)
+        return "\n".join(html_lines)
+
     html_body = f"""
 <html>
-<body style="font-family: 'Malgun Gothic', sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; color: #333;">
+<body style="font-family:'Malgun Gothic',Arial,sans-serif;max-width:800px;margin:0 auto;padding:20px;color:#333;font-size:14px;">
 
-<h2 style="color: #1a5276; border-bottom: 2px solid #1a5276; padding-bottom: 10px;">
-    📊 이수시스템 M&A 인텔리전스 리포트
+<h2 style="color:#1a5276;border-bottom:2px solid #1a5276;padding-bottom:10px;">
+    이수시스템 M&amp;A 인텔리전스 리포트
 </h2>
-<p style="color: #666;">{today} | AI 기반 자동 분석</p>
+<p style="color:#666;">{today} | Claude AI 자동 분석</p>
 
-<div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
-{report_content.replace(chr(10), '<br>').replace('**', '<strong>').replace('**', '</strong>')}
+<div style="background:#f8f9fa;padding:20px;border-radius:8px;margin:20px 0;line-height:1.7;">
+{markdown_to_html(report_content)}
 </div>
 
-<hr style="border: 1px solid #eee; margin: 20px 0;">
-<p style="color: #999; font-size: 12px;">
+<hr style="border:1px solid #eee;margin:20px 0;">
+<p style="color:#999;font-size:11px;">
     본 리포트는 Claude AI가 자동으로 생성하였습니다. 투자 결정 전 전문가 검토를 권장합니다.
 </p>
 
