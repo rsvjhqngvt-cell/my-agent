@@ -3,7 +3,10 @@ name: 이수시스템 M&A 인텔리전스 리포트
 on:
   schedule:
     - cron: '0 23 * * 0-4'  # 한국시간 월-금 오전 8시 (UTC 23:00 전날)
-  workflow_dispatch:          # 수동 실행 버튼
+  workflow_dispatch:
+
+permissions:
+  contents: write  # 리포트 파일을 repo에 푸시하기 위해 필요
 
 jobs:
   run-agent:
@@ -27,4 +30,13 @@ jobs:
           GMAIL_ADDRESS: ${{ secrets.GMAIL_ADDRESS }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           RECIPIENT_EMAIL: ${{ secrets.RECIPIENT_EMAIL }}
+          VIEWER_URL: ${{ secrets.VIEWER_URL }}
         run: python agent.py
+
+      - name: 리포트 파일 저장 (GitHub 푸시)
+        run: |
+          git config user.name "ISU Agent"
+          git config user.email "agent@github.com"
+          git add reports/
+          git diff --staged --quiet || git commit -m "📊 리포트: $(date +%Y-%m-%d)"
+          git push

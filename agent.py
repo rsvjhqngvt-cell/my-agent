@@ -1,11 +1,12 @@
 import os
+import json
 import smtplib
 import requests
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from bs4 import BeautifulSoup
 from anthropic import Anthropic
-from datetime import date
+from datetime import date, datetime
 
 client = Anthropic()
 
@@ -54,20 +55,16 @@ HEADERS = {
 
 
 def crawl_news():
-    """여러 IT 뉴스 사이트에서 최신 기사 제목을 수집합니다."""
     all_news = []
-
     for source in NEWS_SOURCES:
         try:
             response = requests.get(source["url"], headers=HEADERS, timeout=10)
             response.encoding = "utf-8"
             soup = BeautifulSoup(response.text, "lxml")
-
             articles = soup.select(source["article_selector"])[:10]
             for article in articles:
                 title_el = article.select_one(source["title_selector"])
                 link_el = article.select_one(source["link_selector"])
-
                 if title_el and link_el:
                     title = title_el.get_text(strip=True)
                     href = link_el.get("href", "")
@@ -75,161 +72,193 @@ def crawl_news():
                         href = source["base_url"] + href
                     if title:
                         all_news.append({"source": source["name"], "title": title, "url": href})
-
             print(f"[크롤링 완료] {source['name']}: {len(articles)}건")
-
         except Exception as e:
             print(f"[크롤링 실패] {source['name']}: {e}")
-
     return all_news
 
 
 def analyze_with_claude(news_list):
-    """Claude API로 M&A 관점의 뉴스 분석 및 기업 추천을 수행합니다."""
     news_text = "\n".join(
         [f"- [{item['source']}] {item['title']}" for item in news_list]
     )
 
-    prompt = f"""
-당신은 IT 기업 M&A 전문 컨설턴트입니다. 응답은 반드시 아래 형식을 완전히 완성하여 끝까지 작성하세요.
-각 항목은 한 문장으로만 작성하고, 절대 중간에 끊지 마세요.
+    # Claude가 반드시 완성하도록 assistant turn prefill 사용
+    system = "당신은 IT 기업 M&A 전문 컨설턴트입니다. 주어진 형식을 반드시 끝까지 빠짐없이 완성하세요. === END === 마커로 반드시 끝내세요."
 
-## 의뢰 기업 정보
+    user_prompt = f"""아래 의뢰 기업 정보와 뉴스를 바탕으로, 지정된 형식을 끝까지 완성하세요.
+각 항목은 반드시 한 문장(50자 이내)으로만 작성하세요.
+
+## 의뢰 기업
 {ISU_SYSTEM_PROFILE}
 
-## 오늘의 IT 뉴스 목록
+## 오늘의 IT 뉴스
 {news_text}
 
-## 출력 형식 (반드시 아래 형식 그대로, 끝까지 완성할 것)
+## 출력 (아래 형식 그대로 완성, === END === 까지 반드시 작성)
 
-=== M&A 핵심 뉴스 TOP 3 ===
+[뉴스1] 뉴스제목
+관련솔루션:
+S:
+W:
+O:
+T:
+시사점:
 
-[1위] (뉴스 제목)
-관련솔루션: (한 단어~짧은 구)
-S: (한 문장)
-W: (한 문장)
-O: (한 문장)
-T: (한 문장)
-시사점: (한 문장)
+[뉴스2] 뉴스제목
+관련솔루션:
+S:
+W:
+O:
+T:
+시사점:
 
-[2위] (뉴스 제목)
-관련솔루션: (한 단어~짧은 구)
-S: (한 문장)
-W: (한 문장)
-O: (한 문장)
-T: (한 문장)
-시사점: (한 문장)
+[뉴스3] 뉴스제목
+관련솔루션:
+S:
+W:
+O:
+T:
+시사점:
 
-[3위] (뉴스 제목)
-관련솔루션: (한 단어~짧은 구)
-S: (한 문장)
-W: (한 문장)
-O: (한 문장)
-T: (한 문장)
-시사점: (한 문장)
+[기업1] 기업명 | 업종 | 시총약OOO억
+역량:
+시너지:
+S:
+W:
+O:
+T:
+주의:
 
-=== M&A 유망 기업 추천 (시총 1,000억 이하) ===
+[기업2] 기업명 | 업종 | 시총약OOO억
+역량:
+시너지:
+S:
+W:
+O:
+T:
+주의:
 
-[추천1] 기업명 | 업종 | 시총 약 OOO억
-역량: (한 문장)
-시너지: (한 문장)
-S: (한 문장)
-W: (한 문장)
-O: (한 문장)
-T: (한 문장)
-주의: (한 문장)
+[기업3] 기업명 | 업종 | 시총약OOO억
+역량:
+시너지:
+S:
+W:
+O:
+T:
+주의:
 
-[추천2] 기업명 | 업종 | 시총 약 OOO억
-역량: (한 문장)
-시너지: (한 문장)
-S: (한 문장)
-W: (한 문장)
-O: (한 문장)
-T: (한 문장)
-주의: (한 문장)
-
-[추천3] 기업명 | 업종 | 시총 약 OOO억
-역량: (한 문장)
-시너지: (한 문장)
-S: (한 문장)
-W: (한 문장)
-O: (한 문장)
-T: (한 문장)
-주의: (한 문장)
-
-=== END ===
-"""
+=== END ==="""
 
     message = client.messages.create(
         model="claude-opus-4-6",
-        max_tokens=4000,
-        messages=[{"role": "user", "content": prompt}]
+        max_tokens=3500,
+        system=system,
+        messages=[{"role": "user", "content": user_prompt}]
     )
 
     return message.content[0].text
 
 
+def save_report(report_content, news_list):
+    """리포트를 JSON 파일로 저장하고 index.json을 갱신합니다."""
+    today = date.today().isoformat()
+    os.makedirs("reports", exist_ok=True)
+
+    data = {
+        "date": today,
+        "generated_at": datetime.now().isoformat(),
+        "news_count": len(news_list),
+        "content": report_content
+    }
+
+    with open(f"reports/{today}.json", "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+    index_path = "reports/index.json"
+    index = []
+    if os.path.exists(index_path):
+        with open(index_path, "r", encoding="utf-8") as f:
+            index = json.load(f)
+
+    if today not in index:
+        index.insert(0, today)
+        with open(index_path, "w", encoding="utf-8") as f:
+            json.dump(index, f, ensure_ascii=False)
+
+    print(f"[리포트 저장] reports/{today}.json")
+
+
+def format_to_html(text):
+    lines = text.split("\n")
+    html_lines = []
+    in_news = False
+    in_company = False
+
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+
+        if line.startswith("[뉴스"):
+            if not in_news:
+                html_lines.append('<div style="margin-bottom:8px;"><h3 style="color:#fff;background:#1a5276;padding:8px 14px;border-radius:6px;margin:0 0 12px;">📰 M&amp;A 핵심 뉴스 TOP 3</h3>')
+                in_news = True
+            html_lines.append(f'<div style="background:#fff;border-left:4px solid #1a5276;padding:10px 14px;margin-bottom:12px;border-radius:0 6px 6px 0;">')
+            html_lines.append(f'<p style="font-weight:bold;margin:0 0 6px;color:#1a5276;">📌 {line[8:]}</p>')
+        elif line.startswith("[기업"):
+            if in_news:
+                html_lines.append('</div></div>')
+                in_news = False
+            if not in_company:
+                html_lines.append('<div style="margin-bottom:8px;"><h3 style="color:#fff;background:#117a65;padding:8px 14px;border-radius:6px;margin:0 0 12px;">🏢 M&amp;A 유망 기업 추천 (시총 1,000억 이하)</h3>')
+                in_company = True
+            else:
+                html_lines.append('</div>')
+            html_lines.append(f'<div style="background:#fff;border-left:4px solid #117a65;padding:10px 14px;margin-bottom:12px;border-radius:0 6px 6px 0;">')
+            html_lines.append(f'<p style="font-weight:bold;margin:0 0 6px;color:#117a65;">🏢 {line[5:]}</p>')
+        elif line == "=== END ===":
+            if in_news or in_company:
+                html_lines.append('</div></div>')
+        elif line.startswith("S:"):
+            html_lines.append(f'<p style="margin:3px 0;font-size:13px;"><span style="background:#d5f5e3;padding:1px 5px;border-radius:3px;font-weight:bold;">S</span> {line[2:].strip()}</p>')
+        elif line.startswith("W:"):
+            html_lines.append(f'<p style="margin:3px 0;font-size:13px;"><span style="background:#fde8d8;padding:1px 5px;border-radius:3px;font-weight:bold;">W</span> {line[2:].strip()}</p>')
+        elif line.startswith("O:"):
+            html_lines.append(f'<p style="margin:3px 0;font-size:13px;"><span style="background:#d6eaf8;padding:1px 5px;border-radius:3px;font-weight:bold;">O</span> {line[2:].strip()}</p>')
+        elif line.startswith("T:"):
+            html_lines.append(f'<p style="margin:3px 0;font-size:13px;"><span style="background:#f9ebea;padding:1px 5px;border-radius:3px;font-weight:bold;">T</span> {line[2:].strip()}</p>')
+        else:
+            key, sep, val = line.partition(":")
+            if sep and len(key) <= 6:
+                html_lines.append(f'<p style="margin:3px 0;font-size:13px;"><strong>{key}:</strong>{val}</p>')
+            else:
+                html_lines.append(f'<p style="margin:3px 0;font-size:13px;">{line}</p>')
+
+    return "\n".join(html_lines)
+
+
 def send_email(report_content):
-    """Gmail SMTP로 분석 리포트를 발송합니다."""
     sender_email = os.environ["GMAIL_ADDRESS"]
     sender_password = os.environ["GMAIL_APP_PASSWORD"]
     recipient_email = os.environ["RECIPIENT_EMAIL"]
+    viewer_url = os.environ.get("VIEWER_URL", "")
 
     today = date.today().strftime("%Y년 %m월 %d일")
-    subject = f"[이수시스템 M&A 인텔리전스] {today} 아침 IT 동향 리포트"
+    subject = f"[이수시스템 M&A] {today} 인텔리전스 리포트"
 
-    def format_to_html(text):
-        lines = text.split("\n")
-        html_lines = []
-        for line in lines:
-            line = line.strip()
-            if line.startswith("=== ") and line.endswith(" ==="):
-                title = line[4:-4]
-                html_lines.append(f'<h3 style="color:#fff;background:#1a5276;padding:8px 14px;border-radius:6px;margin-top:24px;margin-bottom:8px;">{title}</h3>')
-            elif line.startswith("[1위]") or line.startswith("[2위]") or line.startswith("[3위]"):
-                html_lines.append(f'<p style="font-weight:bold;font-size:14px;margin:16px 0 4px;color:#1a5276;">📌 {line}</p>')
-            elif line.startswith("[추천1]") or line.startswith("[추천2]") or line.startswith("[추천3]"):
-                html_lines.append(f'<p style="font-weight:bold;font-size:14px;margin:16px 0 4px;color:#117a65;">🏢 {line[5:]}</p>')
-            elif line.startswith("S:"):
-                html_lines.append(f'<p style="margin:3px 0;"><span style="background:#d5f5e3;padding:1px 6px;border-radius:3px;font-weight:bold;font-size:12px;">S 강점</span> {line[2:].strip()}</p>')
-            elif line.startswith("W:"):
-                html_lines.append(f'<p style="margin:3px 0;"><span style="background:#fde8d8;padding:1px 6px;border-radius:3px;font-weight:bold;font-size:12px;">W 약점</span> {line[2:].strip()}</p>')
-            elif line.startswith("O:"):
-                html_lines.append(f'<p style="margin:3px 0;"><span style="background:#d6eaf8;padding:1px 6px;border-radius:3px;font-weight:bold;font-size:12px;">O 기회</span> {line[2:].strip()}</p>')
-            elif line.startswith("T:"):
-                html_lines.append(f'<p style="margin:3px 0;"><span style="background:#f9ebea;padding:1px 6px;border-radius:3px;font-weight:bold;font-size:12px;">T 위협</span> {line[2:].strip()}</p>')
-            elif line.startswith("관련솔루션:") or line.startswith("시사점:") or line.startswith("역량:") or line.startswith("시너지:") or line.startswith("주의:"):
-                key, _, val = line.partition(":")
-                html_lines.append(f'<p style="margin:3px 0;"><strong>{key}:</strong>{val}</p>')
-            elif line == "=== END ===":
-                html_lines.append('<hr style="border:1px dashed #ccc;margin:16px 0;">')
-            elif line == "":
-                pass
-            else:
-                html_lines.append(f'<p style="margin:3px 0;">{line}</p>')
-        return "\n".join(html_lines)
+    viewer_link = f'<p style="margin:8px 0;"><a href="{viewer_url}" style="color:#1a5276;">📊 웹에서 전체 리포트 보기 →</a></p>' if viewer_url else ""
 
-    html_body = f"""
-<html>
-<body style="font-family:'Malgun Gothic',Arial,sans-serif;max-width:800px;margin:0 auto;padding:20px;color:#333;font-size:14px;">
-
-<h2 style="color:#1a5276;border-bottom:2px solid #1a5276;padding-bottom:10px;">
-    이수시스템 M&amp;A 인텔리전스 리포트
-</h2>
-<p style="color:#666;">{today} | Claude AI 자동 분석</p>
-
-<div style="background:#f8f9fa;padding:20px;border-radius:8px;margin:20px 0;line-height:1.7;">
+    html_body = f"""<html>
+<body style="font-family:'Malgun Gothic',Arial,sans-serif;max-width:760px;margin:0 auto;padding:20px;color:#333;font-size:14px;">
+<h2 style="color:#1a5276;border-bottom:2px solid #1a5276;padding-bottom:8px;margin-bottom:4px;">이수시스템 M&amp;A 인텔리전스 리포트</h2>
+<p style="color:#888;margin:0 0 4px;">{today} | Claude AI 자동 분석</p>
+{viewer_link}
+<div style="background:#f4f6f8;padding:16px;border-radius:8px;margin:16px 0;line-height:1.8;">
 {format_to_html(report_content)}
 </div>
-
-<hr style="border:1px solid #eee;margin:20px 0;">
-<p style="color:#999;font-size:11px;">
-    본 리포트는 Claude AI가 자동으로 생성하였습니다. 투자 결정 전 전문가 검토를 권장합니다.
-</p>
-
-</body>
-</html>
-"""
+<p style="color:#bbb;font-size:11px;">본 리포트는 Claude AI가 자동 생성하였습니다. 투자 결정 전 전문가 검토를 권장합니다.</p>
+</body></html>"""
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
@@ -247,7 +276,7 @@ def send_email(report_content):
 def main():
     print("=== 이수시스템 M&A 인텔리전스 에이전트 시작 ===")
 
-    print("\n[1/3] IT 뉴스 크롤링 중...")
+    print("\n[1/4] IT 뉴스 크롤링 중...")
     news_list = crawl_news()
     print(f"총 {len(news_list)}건 수집 완료")
 
@@ -255,11 +284,15 @@ def main():
         print("수집된 뉴스가 없어 종료합니다.")
         return
 
-    print("\n[2/3] Claude AI 분석 중...")
+    print("\n[2/4] Claude AI 분석 중...")
     report = analyze_with_claude(news_list)
     print("분석 완료")
+    print(report)  # 로그 확인용
 
-    print("\n[3/3] 이메일 발송 중...")
+    print("\n[3/4] 리포트 파일 저장 중...")
+    save_report(report, news_list)
+
+    print("\n[4/4] 이메일 발송 중...")
     send_email(report)
 
     print("\n=== 완료 ===")

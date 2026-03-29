@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>이수시스템 M&A 인텔리전스</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Malgun Gothic', Arial, sans-serif; background: #f0f2f5; color: #333; font-size: 14px; }
+  header { background: #1a5276; color: #fff; padding: 16px 24px; display: flex; align-items: center; gap: 12px; }
+  header h1 { font-size: 18px; }
+  header span { font-size: 12px; opacity: .7; }
+  .container { max-width: 960px; margin: 0 auto; padding: 20px; }
+
+  /* 검색 & 날짜 선택 */
+  .toolbar { background: #fff; border-radius: 8px; padding: 14px 18px; margin-bottom: 16px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+  .toolbar input[type=text] { flex: 1; min-width: 200px; border: 1px solid #ddd; border-radius: 6px; padding: 8px 12px; font-size: 14px; }
+  .toolbar input[type=text]:focus { outline: none; border-color: #1a5276; }
+  .date-list { display: flex; gap: 6px; flex-wrap: wrap; }
+  .date-btn { padding: 6px 12px; border: 1px solid #ddd; border-radius: 20px; cursor: pointer; background: #fff; font-size: 13px; transition: all .15s; }
+  .date-btn:hover { border-color: #1a5276; color: #1a5276; }
+  .date-btn.active { background: #1a5276; color: #fff; border-color: #1a5276; }
+
+  /* 리포트 본문 */
+  .report { background: #fff; border-radius: 8px; padding: 20px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+  .report-date { color: #888; font-size: 12px; margin-bottom: 16px; }
+
+  .section { margin-bottom: 20px; }
+  .section-title { color: #fff; padding: 8px 14px; border-radius: 6px; font-size: 14px; font-weight: bold; margin-bottom: 10px; }
+  .news-title { background: #1a5276; }
+  .company-title { background: #117a65; }
+
+  .card { background: #f8f9fa; border-radius: 6px; padding: 12px 14px; margin-bottom: 10px; border-left: 4px solid #1a5276; }
+  .card.company { border-left-color: #117a65; }
+  .card-header { font-weight: bold; color: #1a5276; margin-bottom: 8px; font-size: 14px; }
+  .card.company .card-header { color: #117a65; }
+  .card-row { display: flex; align-items: flex-start; gap: 8px; margin: 3px 0; font-size: 13px; line-height: 1.5; }
+  .badge { display: inline-block; padding: 1px 7px; border-radius: 3px; font-weight: bold; font-size: 11px; white-space: nowrap; min-width: 28px; text-align: center; }
+  .badge-s { background: #d5f5e3; color: #1e8449; }
+  .badge-w { background: #fde8d8; color: #c0392b; }
+  .badge-o { background: #d6eaf8; color: #1a5276; }
+  .badge-t { background: #f9ebea; color: #922b21; }
+  .badge-key { background: #eee; color: #555; }
+  .highlight { background: #fff59d; border-radius: 2px; }
+
+  /* 검색 결과 없음 / 로딩 */
+  .empty { text-align: center; padding: 60px; color: #aaa; }
+  .loading { text-align: center; padding: 40px; color: #1a5276; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>📊 이수시스템 M&amp;A 인텔리전스</h1>
+    <span>AI 기반 자동 분석 리포트</span>
+  </div>
+</header>
+
+<div class="container">
+  <div class="toolbar">
+    <input type="text" id="searchInput" placeholder="🔍 키워드 검색 (예: AI, ESG, 인수, 기업명...)" oninput="onSearch()">
+    <div class="date-list" id="dateList"></div>
+  </div>
+  <div class="report" id="reportArea">
+    <div class="loading">리포트를 불러오는 중...</div>
+  </div>
+</div>
+
+<script>
+let allReports = {};
+let currentDate = null;
+let searchQuery = '';
+
+async function fetchJSON(url) {
+  const res = await fetch(url + '?t=' + Date.now());
+  if (!res.ok) throw new Error(res.status);
+  return res.json();
+}
+
+async function init() {
+  try {
+    const index = await fetchJSON('reports/index.json');
+    if (!index || index.length === 0) {
+      document.getElementById('reportArea').innerHTML = '<div class="empty">아직 리포트가 없습니다.<br>GitHub Actions를 실행하면 리포트가 쌓입니다.</div>';
+      return;
+    }
+    renderDateButtons(index);
+    await loadReport(index[0]);
+  } catch (e) {
+    document.getElementById('reportArea').innerHTML = '<div class="empty">리포트 데이터를 불러올 수 없습니다.<br>GitHub Pages가 활성화되어 있는지 확인해주세요.</div>';
+  }
+}
+
+function renderDateButtons(dates) {
+  const list = document.getElementById('dateList');
+  list.innerHTML = dates.map(d =>
+    `<button class="date-btn" onclick="loadReport('${d}')">${d}</button>`
+  ).join('');
+}
+
+async function loadReport(dateStr) {
+  currentDate = dateStr;
+  document.querySelectorAll('.date-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.textContent === dateStr);
+  });
+
+  if (allReports[dateStr]) {
+    render(allReports[dateStr]);
+    return;
+  }
+
+  document.getElementById('reportArea').innerHTML = '<div class="loading">불러오는 중...</div>';
+  try {
+    const data = await fetchJSON(`reports/${dateStr}.json`);
+    allReports[dateStr] = data;
+    render(data);
+  } catch (e) {
+    document.getElementById('reportArea').innerHTML = '<div class="empty">리포트를 불러올 수 없습니다.</div>';
+  }
+}
+
+function onSearch() {
+  searchQuery = document.getElementById('searchInput').value.trim();
+  if (currentDate && allReports[currentDate]) {
+    render(allReports[currentDate]);
+  }
+}
+
+function highlight(text) {
+  if (!searchQuery) return escape(text);
+  const escaped = escape(text);
+  const q = searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return escaped.replace(new RegExp(q, 'gi'), m => `<span class="highlight">${m}</span>`);
+}
+
+function escape(text) {
+  return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function parseReport(content) {
+  const lines = content.split('\n').map(l => l.trim()).filter(l => l);
+  const news = [], companies = [];
+  let current = null;
+  let mode = null;
+
+  for (const line of lines) {
+    if (line.startsWith('[뉴스')) {
+      if (current) (mode === 'news' ? news : companies).push(current);
+      current = { header: line.replace(/^\[뉴스\d\]\s*/, ''), rows: [] };
+      mode = 'news';
+    } else if (line.startsWith('[기업')) {
+      if (current) (mode === 'news' ? news : companies).push(current);
+      current = { header: line.replace(/^\[기업\d\]\s*/, ''), rows: [] };
+      mode = 'company';
+    } else if (line === '=== END ===' || line === '===END===') {
+      if (current) (mode === 'news' ? news : companies).push(current);
+      current = null;
+    } else if (current) {
+      current.rows.push(line);
+    }
+  }
+  if (current) (mode === 'news' ? news : companies).push(current);
+  return { news, companies };
+}
+
+function renderCard(item, isCompany) {
+  const cls = isCompany ? 'card company' : 'card';
+  const rows = item.rows.map(row => {
+    const [key, ...rest] = row.split(':');
+    const val = rest.join(':').trim();
+    if (key === 'S') return `<div class="card-row"><span class="badge badge-s">S</span><span>${highlight(val)}</span></div>`;
+    if (key === 'W') return `<div class="card-row"><span class="badge badge-w">W</span><span>${highlight(val)}</span></div>`;
+    if (key === 'O') return `<div class="card-row"><span class="badge badge-o">O</span><span>${highlight(val)}</span></div>`;
+    if (key === 'T') return `<div class="card-row"><span class="badge badge-t">T</span><span>${highlight(val)}</span></div>`;
+    if (val) return `<div class="card-row"><span class="badge badge-key">${highlight(key)}</span><span>${highlight(val)}</span></div>`;
+    return `<div class="card-row">${highlight(row)}</div>`;
+  }).join('');
+
+  const headerMatches = !searchQuery || item.header.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    item.rows.some(r => r.toLowerCase().includes(searchQuery.toLowerCase()));
+  if (!headerMatches) return '';
+
+  return `<div class="${cls}"><div class="card-header">${isCompany ? '🏢' : '📌'} ${highlight(item.header)}</div>${rows}</div>`;
+}
+
+function render(data) {
+  const { news, companies } = parseReport(data.content);
+  const newsCards = news.map(n => renderCard(n, false)).join('');
+  const companyCards = companies.map(c => renderCard(c, true)).join('');
+
+  const hasResults = newsCards + companyCards;
+  document.getElementById('reportArea').innerHTML = `
+    <div class="report-date">📅 ${data.date} | 수집 뉴스 ${data.news_count}건 분석</div>
+    ${!hasResults && searchQuery ? '<div class="empty">검색 결과가 없습니다.</div>' : ''}
+    ${newsCards ? `<div class="section"><div class="section-title news-title">📰 M&A 핵심 뉴스 TOP 3</div>${newsCards}</div>` : ''}
+    ${companyCards ? `<div class="section"><div class="section-title company-title">🏢 M&A 유망 기업 추천 (시총 1,000억 이하)</div>${companyCards}</div>` : ''}
+  `;
+}
+
+init();
+</script>
+</body>
+</html>
