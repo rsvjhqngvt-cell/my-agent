@@ -71,7 +71,9 @@
 <script>
 let allReports = {};
 let currentDate = null;
+let allDates = [];
 let searchQuery = '';
+let searchTimer = null;
 
 async function fetchJSON(url) {
   const res = await fetch(url + '?t=' + Date.now());
@@ -86,6 +88,7 @@ async function init() {
       document.getElementById('reportArea').innerHTML = '<div class="empty">아직 리포트가 없습니다.<br>GitHub Actions를 실행하면 리포트가 쌓입니다.</div>';
       return;
     }
+    allDates = index;
     renderDateButtons(index);
     await loadReport(index[0]);
   } catch (e) {
@@ -96,8 +99,14 @@ async function init() {
 function renderDateButtons(dates) {
   const list = document.getElementById('dateList');
   list.innerHTML = dates.map(d =>
-    `<button class="date-btn" onclick="loadReport('${d}')">${d}</button>`
+    `<button class="date-btn" onclick="selectDate('${d}')">${d}</button>`
   ).join('');
+}
+
+function selectDate(dateStr) {
+  document.getElementById('searchInput').value = '';
+  searchQuery = '';
+  loadReport(dateStr);
 }
 
 async function loadReport(dateStr) {
@@ -123,9 +132,74 @@ async function loadReport(dateStr) {
 
 function onSearch() {
   searchQuery = document.getElementById('searchInput').value.trim();
-  if (currentDate && allReports[currentDate]) {
-    render(allReports[currentDate]);
+  clearTimeout(searchTimer);
+  if (!searchQuery) {
+    // 검색어 없으면 현재 날짜 리포트로 복귀
+    document.querySelectorAll('.date-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.textContent === currentDate);
+    });
+    if (currentDate && allReports[currentDate]) render(allReports[currentDate]);
+    return;
   }
+  // 날짜 버튼 활성화 해제 (전체 검색 모드)
+  document.querySelectorAll('.date-btn').forEach(btn => btn.classList.remove('active'));
+  searchTimer = setTimeout(() => searchAllDates(), 200);
+}
+
+async function searchAllDates() {
+  document.getElementById('reportArea').innerHTML = '<div class="loading">전체 리포트 검색 중...</div>';
+
+  // 아직 로드 안 된 날짜 병렬 로드
+  const unloaded = allDates.filter(d => !allReports[d]);
+  if (unloaded.length > 0) {
+    await Promise.all(unloaded.map(async d => {
+      try {
+        const data = await fetchJSON(`reports/${d}.json`);
+        allReports[d] = data;
+      } catch (e) { /* 실패한 날짜는 건너뜀 */ }
+    }));
+  }
+
+  renderSearchAll();
+}
+
+function renderSearchAll() {
+  const q = searchQuery.toLowerCase();
+  let html = `<div class="report-date">🔍 "${searchQuery}" — 전체 날짜 검색 결과</div>`;
+  let totalCount = 0;
+
+  for (const dateStr of allDates) {
+    const data = allReports[dateStr];
+    if (!data) continue;
+    const { news, companies } = parseReport(data.content);
+
+    const matchedNews = news.filter(item =>
+      item.header.toLowerCase().includes(q) || item.rows.some(r => r.toLowerCase().includes(q))
+    );
+    const matchedCompanies = companies.filter(item =>
+      item.header.toLowerCase().includes(q) || item.rows.some(r => r.toLowerCase().includes(q))
+    );
+
+    if (matchedNews.length === 0 && matchedCompanies.length === 0) continue;
+    totalCount += matchedNews.length + matchedCompanies.length;
+
+    const newsCards = matchedNews.map(n => renderCard(n, false)).join('');
+    const companyCards = matchedCompanies.map(c => renderCard(c, true)).join('');
+
+    html += `<div style="margin-bottom:24px;">
+      <div style="font-size:13px;font-weight:bold;color:#555;margin-bottom:8px;padding:4px 0;border-bottom:1px solid #eee;">📅 ${dateStr}</div>
+      ${newsCards ? `<div class="section"><div class="section-title news-title">📰 M&A 핵심 뉴스</div>${newsCards}</div>` : ''}
+      ${companyCards ? `<div class="section"><div class="section-title company-title">🏢 M&A 유망 기업</div>${companyCards}</div>` : ''}
+    </div>`;
+  }
+
+  if (totalCount === 0) {
+    html += '<div class="empty">전체 리포트에서 검색 결과가 없습니다.</div>';
+  } else {
+    html = `<div class="report-date">🔍 "${searchQuery}" — 총 ${totalCount}건 (${allDates.length}개 날짜 검색)</div>` + html.slice(html.indexOf('<div style='));
+  }
+
+  document.getElementById('reportArea').innerHTML = html;
 }
 
 function highlight(text) {
