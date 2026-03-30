@@ -6,7 +6,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from bs4 import BeautifulSoup
 from anthropic import Anthropic
-from datetime import date, datetime
+from datetime import date, datetime, timezone, timedelta
 
 client = Anthropic()
 
@@ -525,7 +525,8 @@ def load_existing_report(today_str):
 
 def main():
     print("=== 이수시스템 M&A 인텔리전스 에이전트 시작 ===")
-    today_str = date.today().isoformat()
+    KST = timezone(timedelta(hours=9))
+    today_str = datetime.now(KST).date().isoformat()
 
     # 오늘 이미 분석한 결과가 있으면 재사용 (순서/내용 고정)
     existing = load_existing_report(today_str)
