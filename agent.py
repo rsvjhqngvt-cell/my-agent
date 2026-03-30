@@ -77,7 +77,7 @@ def crawl_news():
     all_news = []
     for source in NEWS_SOURCES:
         try:
-            response = requests.get(source["url"], headers=HEADERS, timeout=10)
+            response = requests.get(source["url"], headers=HEADERS, timeout=10, verify=False)
             response.encoding = "utf-8"
             soup = BeautifulSoup(response.text, "lxml")
             articles = soup.select(source["article_selector"])[:10]
@@ -125,6 +125,10 @@ def analyze_with_claude(news_list, today_str):
 
 수집된 뉴스 목록 (번호와 URL 주목):
 {news_text}
+
+※ 작성 규칙 (반드시 준수):
+- S/W/O/T/시사점/역량/시너지/주의 항목은 각각 핵심만 담아 **한 문장(50자 이내)**으로 작성
+- 열거(①②③)나 복수 문장 금지 — 가장 중요한 한 가지만 선택
 
 위 뉴스 중 아래 우선순위로 가장 중요한 3건을 선별하고,
 반드시 위 목록에 있는 실제 URL을 그대로 복사하여 매핑하세요 (URL 절대 수정/창작 금지).
@@ -395,7 +399,7 @@ def send_email(report_content, today_str):
 def crawl_company_info(url):
     """기업 홈페이지를 직접 크롤링해서 실제 정보를 추출합니다."""
     try:
-        r = requests.get(url, headers=HEADERS, timeout=8, allow_redirects=True)
+        r = requests.get(url, headers=HEADERS, timeout=8, allow_redirects=True, verify=False)
         r.encoding = "utf-8"
         soup = BeautifulSoup(r.text, "lxml")
         # 불필요한 태그 제거
@@ -491,7 +495,7 @@ def verify_and_fix_urls(content):
             url = url.strip()
             if url and url.startswith("http") and "google.com/search" not in url:
                 try:
-                    r = requests.get(url, headers=HEADERS, timeout=6, allow_redirects=True)
+                    r = requests.get(url, headers=HEADERS, timeout=6, allow_redirects=True, verify=False)
                     if r.status_code == 200:
                         # 접속 성공 → URL 유지 (리다이렉트된 실제 URL로 업데이트)
                         final_url = r.url
