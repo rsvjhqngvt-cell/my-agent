@@ -1,6 +1,7 @@
 import os
 import json
 import smtplib
+import html as html_lib
 import requests
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -140,10 +141,10 @@ def analyze_with_claude(news_list, today_str):
 반드시 위 목록에 있는 실제 URL을 그대로 복사하여 매핑하세요 (URL 절대 수정/창작 금지).
 
 뉴스 선정 우선순위:
-1순위: HR 관련 뉴스 (이수시스템 주력사업)
-2순위: 경쟁사(더존비즈온, SAP, 영림원 등) 신기술/시장진출/M&A 소식
-3순위: AI·ERP·ESG 관련 이수시스템 사업 연관 뉴스
-※ 각 뉴스 앞에 [HR] [경쟁사] [AI] [ERP] [ESG] [안전] [클라우드] 중 해당 유형 태그를 붙여주세요.
+1순위: AI 분석·보안 관련 뉴스 (AI 이상탐지/취약점 분석, 개인정보 보호, AI 컴플라이언스, 사이버보안)
+2순위: HR 관련 뉴스 (이수시스템 주력사업) 및 경쟁사(더존비즈온, SAP, 영림원, 파수, 안랩 등) 신기술·M&A 소식
+3순위: ERP·ESG·안전·클라우드 등 이수시스템 사업 연관 뉴스
+※ 각 뉴스 앞에 [AI보안] [HR] [경쟁사] [ERP] [ESG] [안전] [클라우드] 중 해당 유형 태그를 붙여주세요.
 
 [뉴스1] 뉴스제목
 관련솔루션:
@@ -304,19 +305,21 @@ def build_email_html(report_content, today_str, viewer_url):
             elif mode in ("news", "company") and current:
                 current["fields"][key.strip()] = val
 
-    # 사주 섹션 HTML
+    # 사주 섹션 HTML (모델 출력 escape)
+    def _e(key):
+        return html_lib.escape(saju.get(key, ""))
     saju_html = f"""
 <div style="background:linear-gradient(135deg,#1a3a5c,#2471a3);color:#fff;border-radius:10px;padding:18px 20px;margin-bottom:16px;">
   <div style="font-size:15px;font-weight:bold;margin-bottom:12px;">✝️ 오늘의 말씀 & 사주 운세</div>
   <div style="background:rgba(255,255,255,.1);border-radius:8px;padding:12px;margin-bottom:10px;font-style:italic;">
-    &ldquo;{saju.get('성경구절','')}&rdquo;<br>
-    <span style="font-size:12px;opacity:.85;">{saju.get('성경해석','')}</span>
+    &ldquo;{_e('성경구절')}&rdquo;<br>
+    <span style="font-size:12px;opacity:.85;">{_e('성경해석')}</span>
   </div>
   <table style="width:100%;border-collapse:collapse;font-size:13px;">
-    <tr><td style="padding:4px 8px;opacity:.8;white-space:nowrap;">오늘의 기운</td><td style="padding:4px 8px;">{saju.get('오늘의기운','')}</td></tr>
-    <tr><td style="padding:4px 8px;color:#7dcea0;white-space:nowrap;">✅ 좋은 것</td><td style="padding:4px 8px;">{saju.get('좋은것','')}</td></tr>
-    <tr><td style="padding:4px 8px;color:#f1948a;white-space:nowrap;">⚠️ 조심할 것</td><td style="padding:4px 8px;">{saju.get('조심할것','')}</td></tr>
-    <tr><td style="padding:4px 8px;opacity:.8;white-space:nowrap;">🍀 행운</td><td style="padding:4px 8px;">{saju.get('행운의방향','')}</td></tr>
+    <tr><td style="padding:4px 8px;opacity:.8;white-space:nowrap;">오늘의 기운</td><td style="padding:4px 8px;">{_e('오늘의기운')}</td></tr>
+    <tr><td style="padding:4px 8px;color:#7dcea0;white-space:nowrap;">✅ 좋은 것</td><td style="padding:4px 8px;">{_e('좋은것')}</td></tr>
+    <tr><td style="padding:4px 8px;color:#f1948a;white-space:nowrap;">⚠️ 조심할 것</td><td style="padding:4px 8px;">{_e('조심할것')}</td></tr>
+    <tr><td style="padding:4px 8px;opacity:.8;white-space:nowrap;">🍀 행운</td><td style="padding:4px 8px;">{_e('행운의방향')}</td></tr>
   </table>
 </div>"""
 
@@ -326,12 +329,15 @@ def build_email_html(report_content, today_str, viewer_url):
         url = n["fields"].get("URL", "")
         title = n["header"]
         tip = n["fields"].get("시사점", "")
-        link = f'<a href="{url}" style="color:#1a5276;text-decoration:none;" target="_blank">{title}</a>' if url else title
+        url_attr = html_lib.escape(url, quote=True)
+        title_safe = html_lib.escape(title)
+        tip_safe = html_lib.escape(tip)
+        link = f'<a href="{url_attr}" style="color:#1a5276;text-decoration:none;" target="_blank">{title_safe}</a>' if url else title_safe
         news_rows += f"""
 <tr>
   <td style="padding:8px 6px;border-bottom:1px solid #eee;font-size:13px;vertical-align:top;">
     <span style="background:#1a5276;color:#fff;border-radius:3px;padding:1px 6px;font-size:11px;margin-right:6px;">{i}위</span>{link}<br>
-    <span style="color:#888;font-size:12px;margin-left:32px;">{tip}</span>
+    <span style="color:#888;font-size:12px;margin-left:32px;">{tip_safe}</span>
   </td>
 </tr>"""
 
@@ -341,12 +347,15 @@ def build_email_html(report_content, today_str, viewer_url):
         url = c["fields"].get("홈페이지", "")
         name = c["header"]
         synergy = c["fields"].get("시너지", "")
-        link = f'<a href="{url}" style="color:#117a65;text-decoration:none;" target="_blank">{name}</a>' if url else name
+        url_attr = html_lib.escape(url, quote=True)
+        name_safe = html_lib.escape(name)
+        synergy_safe = html_lib.escape(synergy)
+        link = f'<a href="{url_attr}" style="color:#117a65;text-decoration:none;" target="_blank">{name_safe}</a>' if url else name_safe
         company_rows += f"""
 <tr>
   <td style="padding:8px 6px;border-bottom:1px solid #eee;font-size:13px;vertical-align:top;">
     <span style="background:#117a65;color:#fff;border-radius:3px;padding:1px 6px;font-size:11px;margin-right:6px;">{i}</span>{link}<br>
-    <span style="color:#888;font-size:12px;margin-left:32px;">{synergy}</span>
+    <span style="color:#888;font-size:12px;margin-left:32px;">{synergy_safe}</span>
   </td>
 </tr>"""
 
