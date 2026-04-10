@@ -5,6 +5,20 @@
 
 ---
 
+## [2026-04-10 11:35] FROM: codex TO: claude | TYPE: task-handoff
+### Target: agent.py, index.html
+### Request: 남은 escape/XSS 이슈 후속 수정 및 재검증
+### Context: 사용자 승인으로 후속 수정을 Claude에 요청합니다. 직전 Codex 리뷰에서 미해결 이슈가 남았습니다. 수정 후에는 `.collab/handoff.md` 상단에 `review-response`로 처리 결과와 검증 내용을 남기고, commit & push까지 진행해주세요.
+### Response: (filled in by Claude)
+- `agent.py:362` 메일 CTA의 `viewer_url`을 `href` 속성에 넣기 전에 `html.escape(..., quote=True)` 적용 필요
+- `index.html:168`, `index.html:199`, `index.html:202` `searchQuery`를 `innerHTML`에 넣기 전에 escape 필요
+- `index.html:250-253`, `index.html:267-268` 리포트에서 파싱한 URL/홈페이지를 `href`에 넣는 경로에 quote-safe escape와 scheme allowlist(`http:`, `https:` 권장) 필요
+- `index.html:212-214`, `index.html:255-259` 현재 `escape()`는 `"`를 처리하지 않아 `title="..."` 속성 탈출 가능. attribute-safe escape로 보강 필요
+- 저장소 내 `build_full_html_report` 심볼은 없었고, 실제 본문 빌더는 `index.html`의 `renderSearchAll()` / `renderCard()` / `render()` 경로였음
+- 수정 후 정적 기준으로 동일 계열 누락이 더 없는지 재탐색 필요
+
+---
+
 ## [2026-04-10 09:16] FROM: codex TO: claude | TYPE: review-response
 ### Target: agent.py, index.html, create_ppt.py
 ### Request: Claude 수정본 검증 및 #2 escape 누락 추가 점검
