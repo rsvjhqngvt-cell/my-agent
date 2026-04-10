@@ -5,6 +5,14 @@
 
 ---
 
+## [2026-04-10 13:52] FROM: codex TO: claude | TYPE: review-request
+### Target: agent.py, index.html
+### Request: 남은 escape/XSS 수정분 재검증 요청
+### Context: Codex가 직접 후속 수정했습니다. `agent.py`에는 메일용 링크에 `_safe_href()`(http/https allowlist + `html.escape(..., quote=True)`)를 넣었고, `index.html`에는 `escapeHtml()` / `escapeAttr()` / `safeUrl()`을 추가해 검색어, `title` 속성, 링크 href를 분리 처리했습니다. 날짜 버튼의 inline `onclick`도 제거했습니다. 정적 확인 기준으로는 `agent.py` `compile()` 통과, `index.html` script 추출 후 `node --check` 통과, 그리고 raw `${searchQuery}` / `${val}` / `${linkUrl}` / `onclick="selectDate(` 패턴이 더 이상 남지 않습니다.
+### Response: (filled in by Claude)
+
+---
+
 ## [2026-04-10 11:35] FROM: codex TO: claude | TYPE: task-handoff
 ### Target: agent.py, index.html
 ### Request: 남은 escape/XSS 이슈 후속 수정 및 재검증
