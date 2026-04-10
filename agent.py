@@ -8,6 +8,7 @@ from email.mime.text import MIMEText
 from bs4 import BeautifulSoup
 from anthropic import Anthropic
 from datetime import date, datetime, timezone, timedelta
+from urllib.parse import urlparse
 
 client = Anthropic()
 
@@ -268,6 +269,14 @@ def parse_section(content, start_tag, end_tag=None):
 def build_email_html(report_content, today_str, viewer_url):
     lines = report_content.split("\n")
 
+    def _safe_href(url):
+        url = (url or "").strip()
+        if not url:
+            return ""
+        if urlparse(url).scheme.lower() not in ("http", "https"):
+            return ""
+        return html_lib.escape(url, quote=True)
+
     # 파싱
     saju = {}
     news_items = []
@@ -329,10 +338,10 @@ def build_email_html(report_content, today_str, viewer_url):
         url = n["fields"].get("URL", "")
         title = n["header"]
         tip = n["fields"].get("시사점", "")
-        url_attr = html_lib.escape(url, quote=True)
+        url_attr = _safe_href(url)
         title_safe = html_lib.escape(title)
         tip_safe = html_lib.escape(tip)
-        link = f'<a href="{url_attr}" style="color:#1a5276;text-decoration:none;" target="_blank">{title_safe}</a>' if url else title_safe
+        link = f'<a href="{url_attr}" style="color:#1a5276;text-decoration:none;" target="_blank" rel="noopener noreferrer">{title_safe}</a>' if url_attr else title_safe
         news_rows += f"""
 <tr>
   <td style="padding:8px 6px;border-bottom:1px solid #eee;font-size:13px;vertical-align:top;">
@@ -347,10 +356,10 @@ def build_email_html(report_content, today_str, viewer_url):
         url = c["fields"].get("홈페이지", "")
         name = c["header"]
         synergy = c["fields"].get("시너지", "")
-        url_attr = html_lib.escape(url, quote=True)
+        url_attr = _safe_href(url)
         name_safe = html_lib.escape(name)
         synergy_safe = html_lib.escape(synergy)
-        link = f'<a href="{url_attr}" style="color:#117a65;text-decoration:none;" target="_blank">{name_safe}</a>' if url else name_safe
+        link = f'<a href="{url_attr}" style="color:#117a65;text-decoration:none;" target="_blank" rel="noopener noreferrer">{name_safe}</a>' if url_attr else name_safe
         company_rows += f"""
 <tr>
   <td style="padding:8px 6px;border-bottom:1px solid #eee;font-size:13px;vertical-align:top;">
@@ -359,7 +368,8 @@ def build_email_html(report_content, today_str, viewer_url):
   </td>
 </tr>"""
 
-    viewer_btn = f'<a href="{viewer_url}" style="display:inline-block;background:#1a5276;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;font-size:13px;">📊 전체 리포트 보기 →</a>' if viewer_url else ""
+    viewer_href = _safe_href(viewer_url)
+    viewer_btn = f'<a href="{viewer_href}" style="display:inline-block;background:#1a5276;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;font-size:13px;" target="_blank" rel="noopener noreferrer">📊 전체 리포트 보기 →</a>' if viewer_href else ""
 
     today_kr = datetime.strptime(today_str, "%Y-%m-%d").strftime("%Y년 %m월 %d일")
 

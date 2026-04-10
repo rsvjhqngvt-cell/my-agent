@@ -98,9 +98,15 @@ async function init() {
 
 function renderDateButtons(dates) {
   const list = document.getElementById('dateList');
-  list.innerHTML = dates.map(d =>
-    `<button class="date-btn" onclick="selectDate('${d}')">${d}</button>`
-  ).join('');
+  list.innerHTML = '';
+  for (const dateStr of dates) {
+    const button = document.createElement('button');
+    button.className = 'date-btn';
+    button.type = 'button';
+    button.textContent = String(dateStr);
+    button.addEventListener('click', () => selectDate(dateStr));
+    list.appendChild(button);
+  }
 }
 
 function selectDate(dateStr) {
@@ -165,7 +171,8 @@ async function searchAllDates() {
 
 function renderSearchAll() {
   const q = searchQuery.toLowerCase();
-  let html = `<div class="report-date">🔍 "${searchQuery}" — 전체 날짜 검색 결과</div>`;
+  const queryHtml = escapeHtml(searchQuery);
+  let html = `<div class="report-date">🔍 "${queryHtml}" — 전체 날짜 검색 결과</div>`;
   let totalCount = 0;
 
   for (const dateStr of allDates) {
@@ -187,7 +194,7 @@ function renderSearchAll() {
     const companyCards = matchedCompanies.map(c => renderCard(c, true)).join('');
 
     html += `<div style="margin-bottom:24px;">
-      <div style="font-size:13px;font-weight:bold;color:#555;margin-bottom:8px;padding:4px 0;border-bottom:1px solid #eee;">📅 ${dateStr}</div>
+      <div style="font-size:13px;font-weight:bold;color:#555;margin-bottom:8px;padding:4px 0;border-bottom:1px solid #eee;">📅 ${escapeHtml(dateStr)}</div>
       ${newsCards ? `<div class="section"><div class="section-title news-title">📰 M&A 핵심 뉴스</div>${newsCards}</div>` : ''}
       ${companyCards ? `<div class="section"><div class="section-title company-title">🏢 M&A 유망 기업</div>${companyCards}</div>` : ''}
     </div>`;
@@ -196,21 +203,44 @@ function renderSearchAll() {
   if (totalCount === 0) {
     html += '<div class="empty">전체 리포트에서 검색 결과가 없습니다.</div>';
   } else {
-    html = `<div class="report-date">🔍 "${searchQuery}" — 총 ${totalCount}건 (${allDates.length}개 날짜 검색)</div>` + html.slice(html.indexOf('<div style='));
+    html = `<div class="report-date">🔍 "${queryHtml}" — 총 ${totalCount}건 (${allDates.length}개 날짜 검색)</div>` + html.slice(html.indexOf('<div style='));
   }
 
   document.getElementById('reportArea').innerHTML = html;
 }
 
-function highlight(text) {
-  if (!searchQuery) return escape(text);
-  const escaped = escape(text);
-  const q = searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return escaped.replace(new RegExp(q, 'gi'), m => `<span class="highlight">${m}</span>`);
+function escapeHtml(text) {
+  return String(text ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
-function escape(text) {
-  return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+function escapeAttr(text) {
+  return escapeHtml(text);
+}
+
+function safeUrl(url) {
+  const value = String(url ?? '').trim();
+  if (!value) return '';
+  try {
+    const parsed = new URL(value, window.location.origin);
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+      return parsed.href;
+    }
+  } catch (e) {
+    return '';
+  }
+  return '';
+}
+
+function highlight(text) {
+  if (!searchQuery) return escapeHtml(text);
+  const escaped = escapeHtml(text);
+  const q = searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return escaped.replace(new RegExp(q, 'gi'), m => `<span class="highlight">${m}</span>`);
 }
 
 function parseReport(content) {
@@ -248,15 +278,18 @@ function renderCard(item, isCompany) {
     const key = row.slice(0, colonIdx).trim();
     const val = row.slice(colonIdx + 1).trim();
     if (key === 'URL' || key === '홈페이지') {
-      linkUrl = val;
+      linkUrl = safeUrl(val);
       const label = isCompany ? '🔗 홈페이지' : '🔗 기사 원문';
-      return `<div class="card-row"><a href="${val}" target="_blank" style="color:#1a5276;font-size:12px;">${label} →</a></div>`;
+      if (!linkUrl) {
+        return `<div class="card-row"><span style="color:#999;font-size:12px;">${label} 확인 필요</span></div>`;
+      }
+      return `<div class="card-row"><a href="${escapeAttr(linkUrl)}" target="_blank" rel="noopener noreferrer" style="color:#1a5276;font-size:12px;">${label} →</a></div>`;
     }
-    if (key === 'S') return `<div class="card-row"><span class="badge badge-s">S</span><span title="${escape(val)}">${highlight(val)}</span></div>`;
-    if (key === 'W') return `<div class="card-row"><span class="badge badge-w">W</span><span title="${escape(val)}">${highlight(val)}</span></div>`;
-    if (key === 'O') return `<div class="card-row"><span class="badge badge-o">O</span><span title="${escape(val)}">${highlight(val)}</span></div>`;
-    if (key === 'T') return `<div class="card-row"><span class="badge badge-t">T</span><span title="${escape(val)}">${highlight(val)}</span></div>`;
-    if (val) return `<div class="card-row"><span class="badge badge-key">${highlight(key)}</span><span title="${escape(val)}">${highlight(val)}</span></div>`;
+    if (key === 'S') return `<div class="card-row"><span class="badge badge-s">S</span><span title="${escapeAttr(val)}">${highlight(val)}</span></div>`;
+    if (key === 'W') return `<div class="card-row"><span class="badge badge-w">W</span><span title="${escapeAttr(val)}">${highlight(val)}</span></div>`;
+    if (key === 'O') return `<div class="card-row"><span class="badge badge-o">O</span><span title="${escapeAttr(val)}">${highlight(val)}</span></div>`;
+    if (key === 'T') return `<div class="card-row"><span class="badge badge-t">T</span><span title="${escapeAttr(val)}">${highlight(val)}</span></div>`;
+    if (val) return `<div class="card-row"><span class="badge badge-key">${highlight(key)}</span><span title="${escapeAttr(val)}">${highlight(val)}</span></div>`;
     return `<div class="card-row">${highlight(row)}</div>`;
   }).join('');
 
@@ -265,7 +298,7 @@ function renderCard(item, isCompany) {
   if (!headerMatches) return '';
 
   const headerHtml = linkUrl
-    ? `<a href="${linkUrl}" target="_blank" style="color:inherit;text-decoration:none;">${isCompany ? '🏢' : '📌'} ${highlight(item.header)}</a>`
+    ? `<a href="${escapeAttr(linkUrl)}" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:none;">${isCompany ? '🏢' : '📌'} ${highlight(item.header)}</a>`
     : `${isCompany ? '🏢' : '📌'} ${highlight(item.header)}`;
 
   return `<div class="${cls}"><div class="card-header">${headerHtml}</div>${rows}</div>`;
@@ -275,10 +308,12 @@ function render(data) {
   const { news, companies } = parseReport(data.content);
   const newsCards = news.map(n => renderCard(n, false)).join('');
   const companyCards = companies.map(c => renderCard(c, true)).join('');
+  const reportDate = escapeHtml(data.date);
+  const newsCount = escapeHtml(data.news_count);
 
   const hasResults = newsCards + companyCards;
   document.getElementById('reportArea').innerHTML = `
-    <div class="report-date">📅 ${data.date} | 수집 뉴스 ${data.news_count}건 분석</div>
+    <div class="report-date">📅 ${reportDate} | 수집 뉴스 ${newsCount}건 분석</div>
     ${!hasResults && searchQuery ? '<div class="empty">검색 결과가 없습니다.</div>' : ''}
     ${newsCards ? `<div class="section"><div class="section-title news-title">📰 M&A 핵심 뉴스 TOP 3</div>${newsCards}</div>` : ''}
     ${companyCards ? `<div class="section"><div class="section-title company-title">🏢 M&A 유망 기업 추천 (시총 1,000억 이하)</div>${companyCards}</div>` : ''}
