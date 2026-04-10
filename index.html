@@ -248,21 +248,34 @@ function parseReport(content) {
   const news = [], companies = [];
   let current = null;
   let mode = null;
+  // Skip lines that are markdown noise
+  const skipPattern = /^(---+|#{1,3}\s+(수정된|크롤링|파트1|파트2|\[파트)|#{1,3}\s+M&A 유망|#{1,3}\s+주요 뉴스|#{1,3}\s+뉴스 분석|#{1,3}\s+선별 뉴스|\|.*\||\*\*주요 수정|#{1,3}\s+M&A 인텔|> ⚠️)/;
 
   for (const line of lines) {
-    if (line.startsWith('[뉴스')) {
+    // Normalize: strip leading markdown (## , **, - , > )
+    const norm = line.replace(/^#{1,3}\s+/, '').replace(/^\*\*\s*/, '').replace(/\*\*\s*$/, '').replace(/^-\s+/, '').replace(/^>\s+/, '').trim();
+
+    if (norm.startsWith('[뉴스')) {
       if (current) (mode === 'news' ? news : companies).push(current);
-      current = { header: line.replace(/^\[뉴스\d\]\s*/, ''), rows: [] };
+      current = { header: norm.replace(/^\[뉴스\d+\]\s*/, ''), rows: [] };
       mode = 'news';
-    } else if (line.startsWith('[기업')) {
+    } else if (norm.startsWith('[기업')) {
       if (current) (mode === 'news' ? news : companies).push(current);
-      current = { header: line.replace(/^\[기업\d\]\s*/, ''), rows: [] };
+      current = { header: norm.replace(/^\[기업\d+\]\s*/, ''), rows: [] };
       mode = 'company';
     } else if (line === '=== END ===' || line === '===END===') {
       if (current) (mode === 'news' ? news : companies).push(current);
       current = null;
     } else if (current) {
-      current.rows.push(line);
+      // Skip markdown noise lines inside items
+      if (skipPattern.test(line) || line === '---') continue;
+      // Strip markdown formatting from row: "- **S:** val" → "S: val"
+      let row = line.replace(/^-\s+/, '').replace(/\*\*/g, '').replace(/^>\s+/, '').trim();
+      // Skip empty after stripping, or lines that are just section headers
+      if (!row || /^#{1,3}\s/.test(row)) continue;
+      // Normalize ~~strikethrough~~ → remove
+      row = row.replace(/~~/g, '');
+      if (row) current.rows.push(row);
     }
   }
   if (current) (mode === 'news' ? news : companies).push(current);
@@ -275,8 +288,8 @@ function renderCard(item, isCompany) {
   const rows = item.rows.map(row => {
     const colonIdx = row.indexOf(':');
     if (colonIdx === -1) return `<div class="card-row">${highlight(row)}</div>`;
-    const key = row.slice(0, colonIdx).trim();
-    const val = row.slice(colonIdx + 1).trim();
+    const key = row.slice(0, colonIdx).trim().replace(/\*\*/g, '');
+    const val = row.slice(colonIdx + 1).trim().replace(/^\*\*\s*/, '').replace(/\*\*\s*$/, '');
     if (key === 'URL' || key === '홈페이지') {
       linkUrl = safeUrl(val);
       const label = isCompany ? '🔗 홈페이지' : '🔗 기사 원문';
