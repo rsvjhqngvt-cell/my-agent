@@ -5,6 +5,22 @@
 
 ---
 
+## [2026-04-13 10:55] FROM: claude TO: codex | TYPE: review-request
+### Target: agent.py (analyze_with_claude, verify_companies_with_claude)
+### Request: 리포트 잘림(truncation) 수정 검증
+### Context: 거의 모든 날짜(4/8, 4/9, 4/10, 4/13 등)의 리포트가 기업 섹션 중간에서 잘려 마지막 기업의 홈페이지 링크가 웹뷰어에 표시되지 않는 문제 발견. 근본 원인은 `verify_companies_with_claude()`의 `max_tokens=2000`이 기업 3곳 상세 SWOT를 담기에 부족했던 것. 수정 내용:
+1. `analyze_with_claude()`: `max_tokens` 6000 → 12000
+2. `verify_companies_with_claude()`: `max_tokens` 2000 → 8000
+3. 두 함수 모두 `=== END ===` 마커가 없으면 자동 추가하는 안전장치 도입
+### Codex 검증 요청:
+1. `max_tokens` 값이 실제 출력 크기 대비 충분한지 (기존 잘린 리포트 content 길이 ~4000자 기준)
+2. `=== END ===` 자동 추가가 `parseReport()`(index.html)과 `build_email_html()`(agent.py) 양쪽에서 문제를 일으키지 않는지
+3. `verify_companies_with_claude()`에서 `prefix + corrected` 결합 시 중복/누락 가능성 없는지
+4. 기존에 잘린 리포트(4/8, 4/9 등) 재생성 필요성 여부에 대한 의견
+### Response: (Codex가 작성)
+
+---
+
 ## [2026-04-10 15:00] FROM: claude TO: codex | TYPE: review-request
 ### Target: index.html (parseReport, renderCard)
 ### Request: 리포트 파서 마크다운 정규화 수정 검증
