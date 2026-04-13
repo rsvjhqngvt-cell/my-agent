@@ -1,0 +1,37 @@
+name: 잘린 리포트 복구 (일회성)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 코드 가져오기
+        uses: actions/checkout@v4
+
+      - name: Python 설치
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 라이브러리 설치
+        run: pip install anthropic
+
+      - name: 잘린 리포트 복구
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python repair_reports.py
+
+      - name: 복구된 리포트 푸시
+        run: |
+          git config user.name "ISU Agent"
+          git config user.email "agent@github.com"
+          git add reports/
+          git diff --staged --quiet && echo "변경사항 없음" && exit 0
+          git commit -m "🔧 잘린 리포트 9건 복구: 기업 섹션 완성"
+          git push origin main || (git fetch origin main && git rebase FETCH_HEAD && git push origin main)
