@@ -13,13 +13,11 @@
   .container { max-width: 960px; margin: 0 auto; padding: 20px; }
 
   /* 검색 & 날짜 선택 */
-  .toolbar { background: #fff; border-radius: 8px; padding: 14px 18px; margin-bottom: 16px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+  .toolbar { background: #fff; border-radius: 8px; padding: 14px 18px; margin-bottom: 16px; display: flex; gap: 12px; align-items: center; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
   .toolbar input[type=text] { flex: 1; min-width: 200px; border: 1px solid #ddd; border-radius: 6px; padding: 8px 12px; font-size: 14px; }
   .toolbar input[type=text]:focus { outline: none; border-color: #1a5276; }
-  .date-list { display: flex; gap: 6px; flex-wrap: wrap; }
-  .date-btn { padding: 6px 12px; border: 1px solid #ddd; border-radius: 20px; cursor: pointer; background: #fff; font-size: 13px; transition: all .15s; }
-  .date-btn:hover { border-color: #1a5276; color: #1a5276; }
-  .date-btn.active { background: #1a5276; color: #fff; border-color: #1a5276; }
+  .date-select { border: 1px solid #ddd; border-radius: 6px; padding: 8px 12px; font-size: 14px; background: #fff; color: #333; cursor: pointer; min-width: 150px; }
+  .date-select:focus { outline: none; border-color: #1a5276; }
 
   /* 리포트 본문 */
   .report { background: #fff; border-radius: 8px; padding: 20px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
@@ -61,7 +59,7 @@
 <div class="container">
   <div class="toolbar">
     <input type="text" id="searchInput" placeholder="🔍 키워드 검색 (예: AI, ESG, 인수, 기업명...)" oninput="onSearch()">
-    <div class="date-list" id="dateList"></div>
+    <select class="date-select" id="dateSelect" onchange="selectDate(this.value)"></select>
   </div>
   <div class="report" id="reportArea">
     <div class="loading">리포트를 불러오는 중...</div>
@@ -97,15 +95,13 @@ async function init() {
 }
 
 function renderDateButtons(dates) {
-  const list = document.getElementById('dateList');
-  list.innerHTML = '';
+  const sel = document.getElementById('dateSelect');
+  sel.innerHTML = '';
   for (const dateStr of dates) {
-    const button = document.createElement('button');
-    button.className = 'date-btn';
-    button.type = 'button';
-    button.textContent = String(dateStr);
-    button.addEventListener('click', () => selectDate(dateStr));
-    list.appendChild(button);
+    const opt = document.createElement('option');
+    opt.value = dateStr;
+    opt.textContent = String(dateStr);
+    sel.appendChild(opt);
   }
 }
 
@@ -117,9 +113,7 @@ function selectDate(dateStr) {
 
 async function loadReport(dateStr) {
   currentDate = dateStr;
-  document.querySelectorAll('.date-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.textContent === dateStr);
-  });
+  document.getElementById('dateSelect').value = dateStr;
 
   if (allReports[dateStr]) {
     render(allReports[dateStr]);
@@ -141,14 +135,10 @@ function onSearch() {
   clearTimeout(searchTimer);
   if (!searchQuery) {
     // 검색어 없으면 현재 날짜 리포트로 복귀
-    document.querySelectorAll('.date-btn').forEach(btn => {
-      btn.classList.toggle('active', btn.textContent === currentDate);
-    });
+    document.getElementById('dateSelect').value = currentDate;
     if (currentDate && allReports[currentDate]) render(allReports[currentDate]);
     return;
   }
-  // 날짜 버튼 활성화 해제 (전체 검색 모드)
-  document.querySelectorAll('.date-btn').forEach(btn => btn.classList.remove('active'));
   searchTimer = setTimeout(() => searchAllDates(), 200);
 }
 
