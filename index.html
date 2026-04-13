@@ -16,8 +16,15 @@
   .toolbar { background: #fff; border-radius: 8px; padding: 14px 18px; margin-bottom: 16px; display: flex; gap: 12px; align-items: center; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
   .toolbar input[type=text] { flex: 1; min-width: 200px; border: 1px solid #ddd; border-radius: 6px; padding: 8px 12px; font-size: 14px; }
   .toolbar input[type=text]:focus { outline: none; border-color: #1a5276; }
-  .date-select { border: 1px solid #ddd; border-radius: 6px; padding: 8px 12px; font-size: 14px; background: #fff; color: #333; cursor: pointer; min-width: 150px; }
-  .date-select:focus { outline: none; border-color: #1a5276; }
+  .date-select-wrap { position: relative; min-width: 150px; }
+  .date-select-btn { width: 100%; border: 1px solid #ddd; border-radius: 6px; padding: 8px 12px; font-size: 14px; background: #fff; color: #333; cursor: pointer; text-align: left; appearance: none; }
+  .date-select-btn:focus { outline: none; border-color: #1a5276; }
+  .date-select-btn::after { content: '▾'; float: right; color: #999; }
+  .date-dropdown { display: none; position: absolute; top: 100%; left: 0; right: 0; margin-top: 4px; background: #fff; border: 1px solid #ddd; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,.12); z-index: 100; max-height: 320px; overflow-y: auto; }
+  .date-dropdown.open { display: block; }
+  .date-option { padding: 8px 12px; font-size: 13px; cursor: pointer; transition: background .1s; }
+  .date-option:hover { background: #eaf2f8; }
+  .date-option.active { background: #1a5276; color: #fff; }
 
   /* 리포트 본문 */
   .report { background: #fff; border-radius: 8px; padding: 20px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
@@ -59,7 +66,10 @@
 <div class="container">
   <div class="toolbar">
     <input type="text" id="searchInput" placeholder="🔍 키워드 검색 (예: AI, ESG, 인수, 기업명...)" oninput="onSearch()">
-    <select class="date-select" id="dateSelect" onchange="selectDate(this.value)"></select>
+    <div class="date-select-wrap" id="dateSelectWrap">
+      <button type="button" class="date-select-btn" id="dateSelectBtn" onclick="toggleDateDropdown()"></button>
+      <div class="date-dropdown" id="dateDropdown"></div>
+    </div>
   </div>
   <div class="report" id="reportArea">
     <div class="loading">리포트를 불러오는 중...</div>
@@ -95,15 +105,30 @@ async function init() {
 }
 
 function renderDateButtons(dates) {
-  const sel = document.getElementById('dateSelect');
-  sel.innerHTML = '';
+  const dropdown = document.getElementById('dateDropdown');
+  dropdown.innerHTML = '';
   for (const dateStr of dates) {
-    const opt = document.createElement('option');
-    opt.value = dateStr;
-    opt.textContent = String(dateStr);
-    sel.appendChild(opt);
+    const div = document.createElement('div');
+    div.className = 'date-option';
+    div.textContent = String(dateStr);
+    div.addEventListener('click', () => { selectDate(dateStr); closeDateDropdown(); });
+    dropdown.appendChild(div);
   }
 }
+
+function toggleDateDropdown() {
+  document.getElementById('dateDropdown').classList.toggle('open');
+}
+
+function closeDateDropdown() {
+  document.getElementById('dateDropdown').classList.remove('open');
+}
+
+document.addEventListener('click', function(e) {
+  if (!document.getElementById('dateSelectWrap').contains(e.target)) {
+    closeDateDropdown();
+  }
+});
 
 function selectDate(dateStr) {
   document.getElementById('searchInput').value = '';
@@ -113,7 +138,10 @@ function selectDate(dateStr) {
 
 async function loadReport(dateStr) {
   currentDate = dateStr;
-  document.getElementById('dateSelect').value = dateStr;
+  document.getElementById('dateSelectBtn').textContent = dateStr;
+  document.querySelectorAll('.date-option').forEach(opt => {
+    opt.classList.toggle('active', opt.textContent === dateStr);
+  });
 
   if (allReports[dateStr]) {
     render(allReports[dateStr]);
@@ -135,7 +163,7 @@ function onSearch() {
   clearTimeout(searchTimer);
   if (!searchQuery) {
     // 검색어 없으면 현재 날짜 리포트로 복귀
-    document.getElementById('dateSelect').value = currentDate;
+    document.getElementById('dateSelectBtn').textContent = currentDate;
     if (currentDate && allReports[currentDate]) render(allReports[currentDate]);
     return;
   }
