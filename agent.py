@@ -217,11 +217,18 @@ T:
 
     message = client.messages.create(
         model="claude-opus-4-6",
-        max_tokens=6000,
+        max_tokens=12000,
         system=system,
         messages=[{"role": "user", "content": prompt}]
     )
-    return message.content[0].text
+    result = message.content[0].text
+
+    # === END === 마커가 없으면 추가 (토큰 제한으로 잘린 경우 방지)
+    if "=== END ===" not in result:
+        result = result.rstrip() + "\n\n=== END ==="
+        print("[경고] 리포트가 === END === 없이 생성됨 — 마커 추가됨")
+
+    return result
 
 
 def save_report(report_content, news_list, today_str):
@@ -501,10 +508,14 @@ def verify_companies_with_claude(content):
     try:
         message = client.messages.create(
             model="claude-opus-4-6",
-            max_tokens=2000,
+            max_tokens=8000,
             messages=[{"role": "user", "content": verify_prompt}]
         )
         corrected = message.content[0].text
+
+        # === END === 마커가 없으면 추가 (토큰 제한으로 잘린 경우 방지)
+        if "=== END ===" not in corrected:
+            corrected = corrected.rstrip() + "\n\n=== END ==="
 
         # 기업 섹션만 교체
         prefix = content[:content.find("[기업1]")]
