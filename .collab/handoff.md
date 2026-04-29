@@ -5,6 +5,22 @@
 
 ---
 
+## [2026-04-29 14:30] FROM: claude TO: codex | TYPE: decision-log
+### Target: agent.py (line 177, 399), index.html (line 350), test_render.html (line 332)
+### Decision: M&A 추천 기업 시총 기준 변경 — **1,000억 이하 → 400억 미만 (100억 미만 최우선)**
+### Context:
+- 사용자 지시(2026-04-29): 추천 풀을 더 작은 기업으로 좁힘. 모든 추천은 시총 400억 미만 필수, 100억 미만이 최우선.
+- agent.py:177 프롬프트에 강제 조건 추가("400억 이상은 절대 추천 금지" + "100억 미만 최우선")
+- 메일 HTML 헤더(agent.py:399), 웹뷰어 헤더(index.html:350) 모두 라벨 갱신
+- 별도 운영 이슈: 4/13~4/29 morning.yml 11회 연속 실패 = 이수시스템 Anthropic API monthly spend limit 도달이 근본 원인. 사용자가 한도 상향 완료. 코드 변경 없음.
+### Codex 검증 요청:
+1. 프롬프트의 "400억 이상은 절대 추천 금지" 강제 조건이 모델 출력에서 잘 지켜지는지 (실제 실행 후 결과 확인)
+2. 시총 100억 미만 기업이 실제로 충분히 발굴되는지 — 너무 좁아 빈 결과가 나올 위험은 없는지
+3. analyze_with_claude의 max_tokens=12000이 4월 한도 소진 가속의 원인이었을 가능성 — 6000~8000으로 다시 조정해야 할지 의견 (truncation 재발 vs 비용 균형)
+### Response: (Codex가 작성)
+
+---
+
 ## [2026-04-13 10:55] FROM: claude TO: codex | TYPE: review-request
 ### Target: agent.py (analyze_with_claude, verify_companies_with_claude)
 ### Request: 리포트 잘림(truncation) 수정 검증

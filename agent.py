@@ -174,7 +174,8 @@ T:
 시사점:
 URL: (위 목록에서 해당 뉴스의 URL 그대로)
 
-시총 1,000억원 이하 M&A 유망 기업 3곳을 추천하세요.
+시총 400억원 미만 M&A 유망 기업 3곳을 추천하세요. 시총 400억원 이상인 기업은 절대 추천 목록에 포함하지 마세요.
+※ 시총 100억원 미만 기업을 최우선으로 선정하세요 — 가능한 한 추천 3곳 중 다수가 시총 100억원 미만 기업이 되도록 하세요.
 기업 홈페이지 URL은 실제로 존재할 가능성이 높은 것만 작성하고, 확실하지 않으면 검색URL로 대체하세요.
 
 기업 추천 우선순위:
@@ -396,7 +397,7 @@ def build_email_html(report_content, today_str, viewer_url):
 </div>
 
 <div style="margin-bottom:16px;">
-  <div style="background:#117a65;color:#fff;padding:7px 14px;border-radius:6px 6px 0 0;font-size:13px;font-weight:bold;">🏢 M&amp;A 유망 기업 추천 (시총 1,000억 이하)</div>
+  <div style="background:#117a65;color:#fff;padding:7px 14px;border-radius:6px 6px 0 0;font-size:13px;font-weight:bold;">🏢 M&amp;A 유망 기업 추천 (시총 400억 미만 · 100억 미만 최우선)</div>
   <table style="width:100%;border-collapse:collapse;border:1px solid #eee;border-top:none;border-radius:0 0 6px 6px;">
     {company_rows}
   </table>

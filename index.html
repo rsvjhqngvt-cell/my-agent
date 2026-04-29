@@ -347,7 +347,7 @@ function render(data) {
     <div class="report-date">📅 ${reportDate} | 수집 뉴스 ${newsCount}건 분석</div>
     ${!hasResults && searchQuery ? '<div class="empty">검색 결과가 없습니다.</div>' : ''}
     ${newsCards ? `<div class="section"><div class="section-title news-title">📰 M&A 핵심 뉴스 TOP 3</div>${newsCards}</div>` : ''}
-    ${companyCards ? `<div class="section"><div class="section-title company-title">🏢 M&A 유망 기업 추천 (시총 1,000억 이하)</div>${companyCards}</div>` : ''}
+    ${companyCards ? `<div class="section"><div class="section-title company-title">🏢 M&A 유망 기업 추천 (시총 400억 미만 · 100억 미만 최우선)</div>${companyCards}</div>` : ''}
   `;
 }
 
