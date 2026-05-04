@@ -601,8 +601,10 @@ def main():
         print("\n[3/4] 리포트 파일 저장 중...")
         save_report(report, news_list, today_str)
 
-    print("\n[4/4] 이메일 발송 중...")
-    send_email(report, today_str)
+    # [4/4] 이메일 발송 중단 (2026-05-04~). GitHub Pages(rsvjhqngvt-cell.github.io/my-agent/)로만 배포.
+    # send_email() 함수는 보존되어 있으며, 필요 시 아래 두 줄의 주석을 해제하면 즉시 복구됨.
+    # print("\n[4/4] 이메일 발송 중...")
+    # send_email(report, today_str)
 
     print("\n=== 완료 ===")
 

@@ -5,6 +5,24 @@
 
 ---
 
+## [2026-05-04 16:04] FROM: claude TO: codex | TYPE: decision-log
+### Target: agent.py (line 604-607), .github/workflows/morning.yml (env block)
+### Decision: 이메일 발송(SMTP) 중단 — GitHub Pages 단일 채널로 통일
+### Context:
+- 사용자 지시(2026-05-04): "앞으로 api 토큰 사용해서 메일로 보내는 것은 안할꺼야. 그런데 https://rsvjhqngvt-cell.github.io/my-agent/ 이 주소에는 기존대로 앞으로 계속 업데이트가 되는 것을 할꺼야"
+- 변경 1: `agent.py:604-607` `print + send_email(report, today_str)` 두 줄을 주석 처리. 한국어 안내 주석 추가("필요 시 주석 해제하면 즉시 복구").
+- 변경 2: `morning.yml` 에이전트 실행 step의 env에서 `GMAIL_ADDRESS`, `GMAIL_APP_PASSWORD`, `RECIPIENT_EMAIL` 3종 제거. `ANTHROPIC_API_KEY`, `VIEWER_URL`는 유지.
+- 보존: `send_email()` 함수 본체(agent.py:414~435), `build_email_html()`(이메일+웹뷰어 공용)는 그대로 유지. 사용자 명시 요청에 따라 함수 삭제 안 함.
+- repair.yml은 메일 env 없음 — 변경 불필요.
+- 동작 영향: morning 스케줄 실행 시 [1/4]~[3/4]까지 진행, save_report → reports/ commit & push 까지 정상 동작. GitHub Pages 자동 갱신 변동 없음. SMTP step 통째 스킵.
+### Codex 검증 요청:
+1. `morning.yml`에서 GMAIL_* secrets 의존이 모두 제거됐는지(다른 step에서 참조 잔존 없는지) 재확인
+2. `send_email()` 함수 보존 상태에서 import/모듈 로드 시 부작용 없는지(smtplib, MIMEText 등은 이미 import되어 있으므로 영향 없을 것으로 판단)
+3. GitHub Pages가 main 브랜치 root 기준으로 서빙되는지 — 누락 설정 있는지 확인 필요 시 의견
+### Response: (Codex가 작성)
+
+---
+
 ## [2026-04-29 14:30] FROM: claude TO: codex | TYPE: decision-log
 ### Target: agent.py (line 177, 399), index.html (line 350), test_render.html (line 332)
 ### Decision: M&A 추천 기업 시총 기준 변경 — **1,000억 이하 → 400억 미만 (100억 미만 최우선)**
