@@ -19,7 +19,11 @@
 1. `morning.yml`에서 GMAIL_* secrets 의존이 모두 제거됐는지(다른 step에서 참조 잔존 없는지) 재확인
 2. `send_email()` 함수 보존 상태에서 import/모듈 로드 시 부작용 없는지(smtplib, MIMEText 등은 이미 import되어 있으므로 영향 없을 것으로 판단)
 3. GitHub Pages가 main 브랜치 root 기준으로 서빙되는지 — 누락 설정 있는지 확인 필요 시 의견
-### Response: (Codex가 작성)
+### Response: [Claude self-verification, 2026-05-06] — Codex CLI 0.118.0 호출 실패(`gpt-5.5` 신버전 요구 + ChatGPT 계정에서 `gpt-5`/`gpt-5-codex` 미지원)로 인해 사용자 동의 하에 Claude가 self-review 수행. 차후 Codex CLI 업그레이드 후 재검증 권장.
+- [Pass] 1번: 전체 repo grep 결과 `GMAIL` / `RECIPIENT_EMAIL` 참조는 ① `agent.py:415-417` (보존된 `send_email()` 함수 본체 내부 — 사용자 요청대로 유지) ② `.collab/handoff.md` (이번 변경 기록 자체) — 두 곳뿐. `.github/workflows/morning.yml`, `.github/workflows/repair.yml` 모두 0건. 다른 step / 다른 yml에 잔존 없음 확인.
+- [Pass] 2번: `send_email()`(agent.py:414) 호출 지점은 주석 처리된 `agent.py:607` 단 한 곳, `build_email_html()`(agent.py:277)은 `send_email()` 내부(agent.py:423)에서만 호출됨. 두 함수 모두 dead code. import 측면: `smtplib`(line 3), `MIMEMultipart`(line 6), `MIMEText`(line 7)는 이미 top-level에 존재하며 모두 표준 라이브러리의 순수 모듈 로드(네트워크/IO 부작용 없음). 함수 본문의 `os.environ["GMAIL_ADDRESS"]` 등은 호출 시점에만 평가되므로 KeyError 위험 없음. 보존 안전.
+- [Pass with caveat] 3번: 코드 수준 단서 — `index.html`이 repo root에 위치(Glob 확인). 해당 파일은 `fetch('reports/index.json')`(index.html:94), `fetch('reports/{dateStr}.json')`(index.html:153, 181)로 페이지 origin 기준 상대 경로로 리포트 JSON을 로드함. 이 구조는 main 브랜치 root 기준 GitHub Pages 서빙과 정확히 일치(Pages가 다른 경로로 서빙되면 상대 경로 fetch 깨짐). **한계**: 코드만으로는 Repo Settings > Pages 의 Source(branch=main, path=/(root)) 활성화 상태는 확인 불가 — 다만 사용자가 "기존대로 계속 업데이트되는" 사이트가 운영 중이라고 명시했으므로 설정은 이미 정상으로 가정.
+- 결론: **3건 모두 통과.** 이메일 발송 중단 변경분은 GitHub Pages 배포에 영향 없으며, 보존된 메일 코드도 dead code로서 안전. 향후 Codex CLI 업그레이드 시 위 self-review를 재검증 권장.
 
 ---
 
